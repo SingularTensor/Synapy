@@ -7,12 +7,17 @@ from flask_login import login_user, logout_user, login_required, current_user
 from app import app
 from database import db, User, GameType, GameSession, CognitiveScore, COGNITIVE_DOMAINS
 
-COGNITIVE_WEIGHT_VERSION = '2026-02-22-v3'
+COGNITIVE_WEIGHT_VERSION = '2026-02-22-v4'
 COGNITIVE_WEIGHT_TOTAL = 5.0
 COGNITIVE_WEIGHT_MAX_PER_TRAIT = 3.0
 NORMALIZATION_LEVEL_STEP = 10.0
 MIN_POPULATION_SAMPLE_FOR_FULL_WEIGHT = 25
 TRAIT_RETRY_WINDOW_BELOW_PEAK = 1
+SESSION_DIFFICULTY_MIN = 1
+SESSION_DIFFICULTY_MAX = 10
+SESSION_SCORE_MAX = 1000000
+SESSION_ROUNDS_COMPLETED_MAX = 1000000
+SESSION_AVG_RESPONSE_TIME_MS_MAX = 600000
 
 GAME_COGNITIVE_WEIGHTS = {
     # Total per-game budget: 5.0
@@ -33,6 +38,14 @@ GAME_COGNITIVE_WEIGHTS = {
         'verbal_fluency': 0.0,
     },
     # Total per-game budget: 5.0
+    'speed-dart': {
+        'processing_speed': 2.5,
+        'working_memory': 0.5,
+        'pattern_recognition': 1.0,
+        'attention': 1.0,
+        'verbal_fluency': 0.0,
+    },
+    # Total per-game budget: 5.0
     'color-word': {
         'processing_speed': 1.6,
         'working_memory': 0.3,
@@ -44,6 +57,7 @@ GAME_COGNITIVE_WEIGHTS = {
 
 GAME_BASELINE_LEVELS = {
     'sequence-memory': 4.0,
+    'speed-dart': 5.0,
     'box-adding': 3.0,
     'color-word': 12.0,
 }
@@ -112,6 +126,171 @@ def recruiter_required(f):
             abort(403)
         return f(*args, **kwargs)
     return decorated_function
+
+
+def user_has_premium_access(user):
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'is_admin', False):
+        return True
+    # Premium flag is not yet migrated into the User model; default deny.
+    return bool(getattr(user, 'is_premium', False))
+
+
+def user_can_access_game(user, game_type):
+    if not game_type:
+        return False
+    if game_type.access_level != 'premium':
+        return True
+    return user_has_premium_access(user)
+
+
+def parse_int_payload_field(
+    payload,
+    field_name,
+    *,
+    required=True,
+    default=None,
+    min_value=None,
+    max_value=None,
+    allow_none=False,
+):
+    has_field = field_name in payload
+    if not has_field:
+        if required:
+            raise ValueError(f'{field_name} is required')
+        return default
+
+    value = payload.get(field_name)
+    if value is None:
+        if allow_none:
+            return None
+        if required:
+            raise ValueError(f'{field_name} cannot be null')
+        return default
+
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f'{field_name} must be an integer')
+    if isinstance(value, float) and not value.is_integer():
+        raise ValueError(f'{field_name} must be an integer')
+
+    parsed_value = int(value)
+    if min_value is not None and parsed_value < min_value:
+        raise ValueError(f'{field_name} must be >= {min_value}')
+    if max_value is not None and parsed_value > max_value:
+        raise ValueError(f'{field_name} must be <= {max_value}')
+    return parsed_value
+
+
+def parse_float_payload_field(
+    payload,
+    field_name,
+    *,
+    required=True,
+    default=None,
+    min_value=None,
+    max_value=None,
+    allow_none=False,
+):
+    has_field = field_name in payload
+    if not has_field:
+        if required:
+            raise ValueError(f'{field_name} is required')
+        return default
+
+    value = payload.get(field_name)
+    if value is None:
+        if allow_none:
+            return None
+        if required:
+            raise ValueError(f'{field_name} cannot be null')
+        return default
+
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f'{field_name} must be a number')
+
+    parsed_value = float(value)
+    if not math.isfinite(parsed_value):
+        raise ValueError(f'{field_name} must be finite')
+    if min_value is not None and parsed_value < min_value:
+        raise ValueError(f'{field_name} must be >= {min_value}')
+    if max_value is not None and parsed_value > max_value:
+        raise ValueError(f'{field_name} must be <= {max_value}')
+    return parsed_value
+
+
+def validate_session_start_payload(payload):
+    if not isinstance(payload, dict):
+        raise ValueError('Request body must be a JSON object')
+
+    game_slug = payload.get('game_slug')
+    if not isinstance(game_slug, str) or not game_slug.strip():
+        raise ValueError('game_slug must be a non-empty string')
+
+    difficulty_level = parse_int_payload_field(
+        payload,
+        'difficulty',
+        required=False,
+        default=SESSION_DIFFICULTY_MIN,
+        min_value=SESSION_DIFFICULTY_MIN,
+        max_value=SESSION_DIFFICULTY_MAX,
+    )
+
+    return {
+        'game_slug': game_slug.strip(),
+        'difficulty_level': difficulty_level,
+    }
+
+
+def validate_session_end_payload(payload):
+    if not isinstance(payload, dict):
+        raise ValueError('Request body must be a JSON object')
+
+    score = parse_int_payload_field(
+        payload,
+        'score',
+        required=True,
+        min_value=0,
+        max_value=SESSION_SCORE_MAX,
+    )
+    accuracy = parse_float_payload_field(
+        payload,
+        'accuracy',
+        required=True,
+        min_value=0.0,
+        max_value=1.0,
+    )
+    rounds_completed = parse_int_payload_field(
+        payload,
+        'rounds_completed',
+        required=True,
+        min_value=0,
+        max_value=SESSION_ROUNDS_COMPLETED_MAX,
+    )
+    avg_response_time_ms = parse_int_payload_field(
+        payload,
+        'avg_response_time_ms',
+        required=True,
+        min_value=0,
+        max_value=SESSION_AVG_RESPONSE_TIME_MS_MAX,
+        allow_none=True,
+    )
+
+    incoming_raw_data = payload.get('raw_data')
+    if incoming_raw_data is None:
+        raw_data = {}
+    elif isinstance(incoming_raw_data, dict):
+        raw_data = dict(incoming_raw_data)
+    else:
+        raise ValueError('raw_data must be a JSON object when provided')
+
+    return {
+        'score': score,
+        'accuracy': accuracy,
+        'rounds_completed': rounds_completed,
+        'avg_response_time_ms': avg_response_time_ms,
+        'raw_data': raw_data,
+    }
 
 
 @app.route('/')
@@ -205,6 +384,9 @@ def dashboard():
 @login_required
 def play_game(game_slug):
     game_type = GameType.query.filter_by(slug=game_slug, is_active=True).first_or_404()
+    if not user_can_access_game(current_user, game_type):
+        flash('This is an Elite metric assessment. Please upgrade to Premium to play.', 'warning')
+        return redirect(url_for('problems'))
     if not game_template_exists(game_slug):
         return redirect(url_for('coming_soon', game_slug=game_slug))
     return render_template(f'games/{game_slug}.html', game_type=game_type)
@@ -214,7 +396,7 @@ def play_game(game_slug):
 def try_game(game_slug):
     game_type = GameType.query.filter_by(slug=game_slug, is_active=True).first_or_404()
     
-    if game_type.access_level == 'premium':
+    if not user_can_access_game(current_user, game_type):
         flash('This is an Elite metric assessment. Please upgrade to Premium to play.', 'warning')
         return redirect(url_for('problems'))
 
@@ -233,17 +415,24 @@ def coming_soon(game_slug):
 @app.route('/api/session/start', methods=['POST'])
 @login_required
 def start_session():
-    data = request.get_json()
-    game_slug = data.get('game_slug')
+    payload = request.get_json(silent=True)
+    try:
+        validated = validate_session_start_payload(payload)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
 
-    game_type = GameType.query.filter_by(slug=game_slug).first()
+    game_slug = validated['game_slug']
+
+    game_type = GameType.query.filter_by(slug=game_slug, is_active=True).first()
     if not game_type:
         return jsonify({'error': 'Invalid game'}), 400
+    if not user_can_access_game(current_user, game_type):
+        return jsonify({'error': 'Premium access required'}), 403
 
     session = GameSession(
         user_id=current_user.id,
         game_type_id=game_type.id,
-        difficulty_level=data.get('difficulty', 1)
+        difficulty_level=validated['difficulty_level']
     )
     db.session.add(session)
     db.session.commit()
@@ -259,21 +448,23 @@ def end_session(session_id):
     session = GameSession.query.get_or_404(session_id)
     if session.user_id != current_user.id:
         abort(403)
+    if not user_can_access_game(current_user, session.game_type):
+        return jsonify({'error': 'Premium access required'}), 403
 
-    data = request.get_json()
+    payload = request.get_json(silent=True)
+    try:
+        validated = validate_session_end_payload(payload)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
 
     session.ended_at = datetime.utcnow()
-    session.score = data.get('score', 0)
-    session.accuracy = data.get('accuracy')
-    session.avg_response_time_ms = data.get('avg_response_time_ms')
-    session.rounds_completed = data.get('rounds_completed', 0)
+    session.score = validated['score']
+    session.accuracy = validated['accuracy']
+    session.avg_response_time_ms = validated['avg_response_time_ms']
+    session.rounds_completed = validated['rounds_completed']
     normalization = calculate_game_normalization(session)
 
-    incoming_raw_data = data.get('raw_data')
-    if isinstance(incoming_raw_data, dict):
-        session.raw_data = dict(incoming_raw_data)
-    else:
-        session.raw_data = {}
+    session.raw_data = validated['raw_data']
     session.raw_data['cognitive_weight_version'] = COGNITIVE_WEIGHT_VERSION
     session.raw_data['normalization'] = normalization
 
@@ -558,3 +749,23 @@ def admin_panel():
     users = User.query.order_by(User.created_at.desc()).all()
     game_types = GameType.query.all()
     return render_template('admin.html', users=users, game_types=game_types)
+
+
+@app.route('/admin/users/<int:user_id>/premium', methods=['POST'])
+@login_required
+@admin_required
+def set_user_premium_access(user_id):
+    target_user = db.session.get(User, user_id)
+    if target_user is None:
+        abort(404)
+
+    raw_value = (request.form.get('is_premium') or '').strip().lower()
+    if raw_value not in {'true', 'false'}:
+        abort(400)
+
+    target_user.is_premium = (raw_value == 'true')
+    db.session.commit()
+
+    status_label = 'granted' if target_user.is_premium else 'revoked'
+    flash(f'Premium access {status_label} for @{target_user.username}.')
+    return redirect(url_for('admin_panel'))

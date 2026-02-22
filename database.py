@@ -2,6 +2,7 @@ from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import inspect, text
 
 db = SQLAlchemy()
 
@@ -16,6 +17,7 @@ class User(db.Model, UserMixin):
 
     is_admin = db.Column(db.Boolean, default=False)
     is_recruiter = db.Column(db.Boolean, default=False)
+    is_premium = db.Column(db.Boolean, default=False, nullable=False, server_default=text('0'))
     profile_public = db.Column(db.Boolean, default=False)
 
     total_xp = db.Column(db.Integer, default=0)
@@ -133,3 +135,27 @@ class Leaderboard(db.Model):
     __table_args__ = (
         db.UniqueConstraint('user_id', 'period', 'period_start', name='_user_period_uc'),
     )
+
+
+def ensure_runtime_schema_compatibility():
+    """
+    Apply minimal additive schema patches for local/dev environments that
+    may run without a migration system.
+    """
+    engine = db.engine
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
+    if 'users' not in table_names:
+        return
+
+    user_columns = {column['name'] for column in inspector.get_columns('users')}
+    statements = []
+    if 'is_premium' not in user_columns:
+        statements.append('ALTER TABLE users ADD COLUMN is_premium BOOLEAN NOT NULL DEFAULT 0')
+
+    if not statements:
+        return
+
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))

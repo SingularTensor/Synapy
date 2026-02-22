@@ -60,7 +60,7 @@ Flask application with SQLAlchemy/SQLite.
 - Working Memory
 - Processing Speed
 - Attention
-- Pattern Recognition
+- Spatial Reasoning
 - Mental Math
 - Verbal Comprehension
 
@@ -74,6 +74,8 @@ Flask application with SQLAlchemy/SQLite.
 ## Agent Guardrails
 
 - See `AGENTS.md` for mandatory cognitive-weight rules and versioning requirements.
+- See `docs/AGENT_PLAYBOOK.md` for task checklists and high-risk hotspot guidance.
+- See `docs/business/RISKS_AND_ASSUMPTIONS.md` for current prioritized technical/product risks.
 
 ## Next Steps (Not Time-Bound)
 

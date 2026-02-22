@@ -7,7 +7,7 @@ INITIAL_GAMES = [
         'slug': 'sequence-memory', 'name': 'Sequence Memory', 'description': 'Remember sequence', 'cognitive_domain': 'working_memory', 'icon': 'grid', 'color': '#8B5CF6', 'access_level': 'free', 'industry': 'General Puzzles'
     },
     {
-        'slug': 'reaction-time', 'name': 'Reaction Time', 'description': 'Test reflexes', 'cognitive_domain': 'processing_speed', 'icon': 'zap', 'color': '#F59E0B', 'access_level': 'free', 'industry': 'General Puzzles'
+        'slug': 'speed-dart', 'name': 'Speed Dart', 'description': 'Find and hit the target', 'cognitive_domain': 'processing_speed', 'icon': 'zap', 'color': '#F59E0B', 'access_level': 'free', 'industry': 'General Puzzles'
     },
     {
         'slug': 'mental-math', 'name': 'Mental Math', 'description': 'Arithmetic under pressure', 'cognitive_domain': 'mental_math', 'icon': 'calculator', 'color': '#EF4444', 'access_level': 'free', 'industry': 'General Puzzles'

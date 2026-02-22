@@ -52,6 +52,38 @@
         background: #3B82F620;
         color: #3B82F6;
     }
+    .badge-premium {
+        background: #F59E0B20;
+        color: #F59E0B;
+    }
+    .badge-free {
+        background: #94A3B820;
+        color: #94A3B8;
+    }
+    .inline-form {
+        margin: 0;
+    }
+    .action-btn {
+        border: 1px solid #2a2a4a;
+        border-radius: 8px;
+        padding: 6px 10px;
+        color: #fff;
+        background: #1f2937;
+        font-size: 0.8rem;
+        cursor: pointer;
+    }
+    .action-grant {
+        background: #14532d;
+        border-color: #15803d;
+    }
+    .action-revoke {
+        background: #7f1d1d;
+        border-color: #b91c1c;
+    }
+    .action-disabled {
+        color: #888;
+        font-size: 0.8rem;
+    }
 </style>
 {% endblock %}
 
@@ -68,6 +100,8 @@
                     <th>Email</th>
                     <th>XP</th>
                     <th>Role</th>
+                    <th>Premium</th>
+                    <th>Actions</th>
                     <th>Joined</th>
                 </tr>
             </thead>
@@ -80,6 +114,25 @@
                     <td>
                         {% if user.is_admin %}<span class="badge badge-admin">Admin</span>{% endif %}
                         {% if user.is_recruiter %}<span class="badge badge-recruiter">Recruiter</span>{% endif %}
+                    </td>
+                    <td>
+                        {% if user.is_premium %}
+                        <span class="badge badge-premium">Premium</span>
+                        {% else %}
+                        <span class="badge badge-free">Free</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if user.is_admin %}
+                        <span class="action-disabled">Locked</span>
+                        {% else %}
+                        <form method="POST" action="{{ url_for('set_user_premium_access', user_id=user.id) }}" class="inline-form">
+                            <input type="hidden" name="is_premium" value="{{ 'false' if user.is_premium else 'true' }}">
+                            <button type="submit" class="action-btn {{ 'action-revoke' if user.is_premium else 'action-grant' }}">
+                                {{ 'Revoke Premium' if user.is_premium else 'Grant Premium' }}
+                            </button>
+                        </form>
+                        {% endif %}
                     </td>
                     <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '--' }}</td>
                 </tr>

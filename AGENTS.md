@@ -49,5 +49,64 @@ When editing cognitive trait mappings in `routes.py`:
 - Breadth across games in the same trait should update confidence/tie-breaker (`session_count`), not inflate trait score by raw summation.
 - Current calibration anchors:
   - `sequence-memory` baseline level: `4`
+  - `speed-dart` baseline level: `5`
   - `box-adding` baseline level: `3`
   - `color-word` baseline level: `12`
+
+
+## Agent Safety Rails (Mandatory For All Tasks)
+
+Before finalizing any code change, agents must run this preflight:
+
+1. Access-control parity check:
+   - If a game route or API route is touched, verify access rules stay consistent across:
+     - `/play/<slug>`
+     - `/try/<slug>`
+     - `/api/session/start`
+     - `/api/session/<id>/end`
+2. Client-payload trust check:
+   - Treat browser metrics as untrusted input.
+   - Validate expected fields and ranges server-side (`score`, `accuracy`, `rounds_completed`, `avg_response_time_ms`, `difficulty`).
+3. Cognitive scoring integrity check:
+   - Confirm changes do not bypass `validate_game_cognitive_weights(...)`.
+   - Confirm `TRAIT_RETRY_WINDOW_BELOW_PEAK` behavior is preserved unless explicitly requested.
+4. Live vs demo data check:
+   - If editing dashboard or profile views, state whether each metric is computed live or is placeholder/demo.
+5. Verification check:
+   - Run available syntax/tests.
+   - If execution is blocked by environment, explicitly report what could not be run.
+
+
+## High-Risk Hotspots (Review Before Editing)
+
+1. `routes.py` -> `play_game(...)` and `try_game(...)`
+   - Risk: inconsistent premium gating between authenticated and guest flows.
+2. `routes.py` -> `start_session(...)` and `end_session(...)`
+   - Risk: trusting client-submitted scoring fields without strict server validation.
+3. `routes.py` -> cognitive scoring functions
+   - Risk: subtle regressions in normalization and peak-window logic.
+4. `templates/dashboard.html`
+   - Risk: mixing hardcoded/demo KPI cards with live cognitive data can mislead users and agents.
+5. `seed.py`
+   - Risk: `drop_all()` is destructive and intended only for local reset workflows.
+
+
+## Naming And Alias Guardrails
+
+- Internal domain key `verbal_fluency` currently maps to user-facing label `Verbal Comprehension`.
+- Internal domain key `pattern_recognition` currently maps to user-facing label `Spatial Reasoning`.
+- Do not rename internal keys ad hoc.
+- Any key rename requires:
+  1. coordinated code update,
+  2. data migration plan,
+  3. temporary backward-compat alias.
+
+
+## Agent Definition Of Done
+
+A change is not done until all are true:
+
+1. The requested feature/fix is implemented.
+2. Relevant risk rails above were checked.
+3. Any touched invariants are documented in code or docs.
+4. Verification results are reported (or blocked checks are called out explicitly).

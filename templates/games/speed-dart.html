@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Reaction Targets - Synapy{% endblock %}
+{% block title %}Speed Dart - Synapy{% endblock %}
 
 {% block head %}
 <style>
@@ -203,45 +203,67 @@
         min-width: 144px;
     }
 
-    .game-over {
-        display: none;
-        margin-top: 14px;
-        background: rgba(15, 23, 42, 0.72);
-        border: 1px solid rgba(71, 85, 105, 0.52);
-        border-radius: 14px;
-        padding: 18px;
-        text-align: center;
+    .game-over-banner {
+        position: fixed;
+        bottom: -150px;
+        left: 0;
+        right: 0;
+        background: rgba(15, 23, 42, 0.95);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-top: 1px solid rgba(148, 163, 184, 0.15);
+        box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+        padding: 24px 20px;
+        z-index: 100;
+        transition: bottom 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+        display: flex;
+        justify-content: center;
     }
 
-    .game-over h2 {
-        color: #f8fafc;
-        margin-bottom: 8px;
+    .game-over-banner.show {
+        bottom: 0;
     }
 
-    .final-score {
-        font-size: 2.6rem;
-        font-weight: 800;
-        color: #fbbf24;
-        margin-bottom: 8px;
+    .banner-content {
+        max-width: 800px;
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 20px;
     }
 
-    .result-detail {
-        color: #cbd5e1;
-        margin-bottom: 12px;
-        font-size: 0.93rem;
+    .banner-stats {
+        text-align: left;
     }
 
-    #xpGained {
+    .banner-stats h2 {
+        color: var(--text-strong);
+        font-size: 1.5rem;
+        margin: 0 0 5px 0;
+    }
+
+    .score-details {
+        color: var(--text-muted);
+        font-size: 1.05rem;
+    }
+
+    .score-details span#finalScore {
+        color: var(--accent);
+        font-weight: 700;
+        font-size: 1.2rem;
+    }
+
+    .xp-text {
         color: #4ade80;
-        margin-bottom: 12px;
         font-weight: 600;
     }
 
-    .cta-buttons {
+    .banner-actions {
         display: flex;
-        justify-content: center;
-        gap: 10px;
-        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
     }
 
     @media (max-width: 640px) {
@@ -263,6 +285,15 @@
             min-height: 270px;
             grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
             gap: 10px;
+        }
+
+        .banner-content {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .banner-stats {
+            text-align: center;
         }
     }
 </style>
@@ -307,20 +338,25 @@
         </div>
     </div>
 
-    <div class="game-over" id="gameOver">
-        <h2>Game Over</h2>
-        <div class="final-score" id="finalScore">0</div>
-        <p class="result-detail" id="resultDetail"></p>
-
-        {% if not current_user.is_authenticated %}
-        <div class="cta-buttons">
-            <a href="{{ url_for('register') }}" class="btn btn-primary">Create Account</a>
-            <button class="btn btn-secondary" id="restartBtn">Play Again</button>
+    <div class="game-over-banner" id="gameOver">
+        <div class="banner-content">
+            <div class="banner-stats">
+                <h2 id="bannerMessage">Game Over!</h2>
+                <div class="score-details">
+                    <span id="finalScore">0</span> points
+                    <span id="resultDetail" style="margin-left:8px; font-size: 0.9em;"></span>
+                    {% if current_user.is_authenticated %}
+                    • <span id="xpGained" class="xp-text"></span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="banner-actions">
+                {% if not current_user.is_authenticated %}
+                <a href="{{ url_for('register') }}" class="btn btn-secondary">Sign Up to Save</a>
+                {% endif %}
+                <button class="btn btn-primary" id="restartBtn">Try Again</button>
+            </div>
         </div>
-        {% else %}
-        <p id="xpGained"></p>
-        <button class="btn btn-primary" id="restartBtn">Play Again</button>
-        {% endif %}
     </div>
 </div>
 {% endblock %}
@@ -347,7 +383,7 @@
     const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
     const globalAudio = window.SynapyAudio || null;
 
-    const GAME_SLUG = 'reaction-time';
+    const GAME_SLUG = 'speed-dart';
     const MAX_STRIKES = 2;
     const START_TARGET_COUNT = 3;
     const MAX_TARGETS_PER_ROUND = 12;
@@ -704,11 +740,12 @@
             });
             const data = await res.json();
             if (xpGainedEl) {
-                xpGainedEl.textContent = `+${data.xp_earned} XP`;
+                const tmpl = document.getElementById('neuronSvgTemplate');
+                xpGainedEl.innerHTML = `+${data.xp_earned} ${tmpl ? tmpl.innerHTML : 'neurons'}`;
             }
         } catch (err) {
             if (xpGainedEl) {
-                xpGainedEl.textContent = '';
+                xpGainedEl.innerHTML = '';
             }
         }
     }
@@ -736,7 +773,7 @@
         clearRoundTimeout();
         clearTimerTick();
 
-        if (xpGainedEl) xpGainedEl.textContent = '';
+        if (xpGainedEl) xpGainedEl.innerHTML = '';
         resultDetailEl.textContent = '';
         updateScoreHud();
         updateStrikesHud();
@@ -744,8 +781,7 @@
         clearArena();
         targetPreviewEl.innerHTML = '';
 
-        gameOverEl.style.display = 'none';
-        gamePanelEl.style.display = 'block';
+        gameOverEl.classList.remove('show');
         startBtnEl.style.display = 'none';
         timerTickId = setInterval(updateRoundTimerVisual, ROUND_TIMER_TICK_MS);
         updateRoundTimerVisual();
@@ -765,8 +801,7 @@
 
         finalScoreEl.textContent = String(score);
         resultDetailEl.textContent = `Rounds ${Math.max(0, round - 1)} | Accuracy ${(getAccuracy() * 100).toFixed(0)}%`;
-        gamePanelEl.style.display = 'none';
-        gameOverEl.style.display = 'block';
+        gameOverEl.classList.add('show');
 
         await endSession(reason);
     }

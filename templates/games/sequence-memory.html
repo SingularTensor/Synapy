@@ -223,6 +223,38 @@
         box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.18);
     }
 
+    .cell.active.intro-flash {
+        background: rgba(224, 74, 255, 0.45);
+        border: 2px solid #fbbf24;
+        box-shadow: 0 0 18px rgba(245, 158, 11, 0.5), 0 0 0 2px rgba(251, 191, 36, 0.3);
+    }
+
+    .cell .intro-hint {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fbbf24;
+        font-size: 0.82rem;
+        font-weight: 700;
+        pointer-events: none;
+        opacity: 0;
+        animation: hint-fade-in 0.4s ease forwards;
+    }
+
+    @keyframes hint-fade-in {
+        from {
+            opacity: 0;
+            transform: scale(0.9);
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
     .cell.correct {
         background: rgba(224, 74, 255, 0.18);
     }
@@ -241,14 +273,73 @@
         left: 50%;
         top: 50%;
         transform: translate(-50%, -6px);
+        pointer-events: none;
+        z-index: 3;
+        animation: tile-progress-fall 1.05s ease-out forwards;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .tile-progress-pop .pop-text {
         color: #fff7ed;
         font-size: 1.65rem;
         font-weight: 700;
         letter-spacing: 0.01em;
-        text-shadow: 0 0 10px rgba(251, 146, 60, 0.65);
-        pointer-events: none;
-        z-index: 3;
-        animation: tile-progress-fall 1.05s ease-out forwards;
+        text-shadow: 0 0 12px rgba(74, 222, 128, 0.7);
+        z-index: 2;
+    }
+
+    .tile-sparkle {
+        position: absolute;
+        color: #4ade80;
+        /* Tailwind green-400 */
+        opacity: 0;
+        transform: scale(0);
+        animation: sparkle-pop 1.05s ease-out forwards;
+        z-index: 1;
+    }
+
+    .tile-sparkle.sp-1 {
+        top: -8px;
+        left: -14px;
+        width: 14px;
+        height: 14px;
+        animation-delay: 0.05s;
+    }
+
+    .tile-sparkle.sp-2 {
+        bottom: -2px;
+        right: -16px;
+        width: 11px;
+        height: 11px;
+        animation-delay: 0.15s;
+    }
+
+    .tile-sparkle.sp-3 {
+        top: -2px;
+        right: -6px;
+        width: 8px;
+        height: 8px;
+        animation-delay: 0.25s;
+    }
+
+    @keyframes sparkle-pop {
+        0% {
+            opacity: 0;
+            transform: scale(0) rotate(0deg);
+        }
+
+        30% {
+            opacity: 1;
+            transform: scale(1.2) rotate(45deg);
+            text-shadow: 0 0 8px rgba(74, 222, 128, 0.8);
+        }
+
+        100% {
+            opacity: 0;
+            transform: scale(0.5) rotate(90deg);
+        }
     }
 
     .message {
@@ -309,65 +400,72 @@
         }
     }
 
-    .game-over {
-        display: none;
-        max-width: 480px;
-        margin: 0 auto;
-        background: rgba(15, 22, 35, 0.68);
-        border: 1px solid var(--line-soft);
-        border-radius: 16px;
-        padding: 26px 20px;
-    }
-
-    .game-over h2 {
-        font-size: 2rem;
-        margin-bottom: 14px;
-        color: #ffe8c4;
-    }
-
-    .final-score {
-        font-size: 3rem;
-        font-weight: bold;
-        color: #fbbf24;
-        margin-bottom: 8px;
-        text-shadow: 0 0 20px rgba(245, 158, 11, 0.28);
-    }
-
-    .game-over-note {
-        color: var(--text-muted);
-        margin-bottom: 18px;
-    }
-
-    .signup-cta {
-        background: linear-gradient(145deg, rgba(245, 158, 11, 0.14), rgba(17, 24, 39, 0.52));
-        border: 1px solid rgba(249, 115, 22, 0.34);
-        border-radius: 12px;
-        padding: 25px;
-        margin-top: 25px;
-    }
-
-    .signup-cta h3 {
-        margin-bottom: 10px;
-        color: #fff1db;
-    }
-
-    .signup-cta p {
-        color: var(--text-muted);
-        margin-bottom: 15px;
-        font-size: 0.95rem;
-    }
-
-    .cta-buttons {
+    .game-over-banner {
+        position: fixed;
+        bottom: -150px;
+        left: 0;
+        right: 0;
+        background: rgba(15, 23, 42, 0.95);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-top: 1px solid rgba(148, 163, 184, 0.15);
+        box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+        padding: 24px 20px;
+        z-index: 100;
+        transition: bottom 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
         display: flex;
-        gap: 10px;
         justify-content: center;
-        flex-wrap: wrap;
     }
 
-    #xpGained {
+    .game-over-banner.show {
+        bottom: 0;
+    }
+
+    .banner-content {
+        max-width: 800px;
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+
+    .banner-stats {
+        text-align: left;
+    }
+
+    .banner-stats h2 {
+        color: var(--text-strong);
+        font-size: 1.5rem;
+        margin: 0 0 5px 0;
+    }
+
+    .score-details {
+        color: var(--text-muted);
+        font-size: 1.05rem;
+    }
+
+    .score-details span#finalScore {
+        color: var(--accent);
+        font-weight: 700;
+        font-size: 1.2rem;
+    }
+
+    .xp-text {
         color: #4ade80;
-        margin-bottom: 18px;
         font-weight: 600;
+    }
+
+    .xp-text .neuron-icon {
+        width: 29.7px !important;
+        height: 29.7px !important;
+    }
+
+    .banner-actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
     }
 
     @media (max-width: 560px) {
@@ -406,12 +504,13 @@
             padding: 12px 20px;
         }
 
-        .signup-cta {
-            padding: 16px 12px;
+        .banner-content {
+            flex-direction: column;
+            text-align: center;
         }
 
-        .game-over {
-            padding: 16px 12px;
+        .banner-stats {
+            text-align: center;
         }
     }
 </style>
@@ -453,25 +552,24 @@
         <button class="btn btn-primary btn-start" id="startBtn">Start</button>
     </div>
 
-    <div class="game-over" id="gameOver">
-        <h2>Game Over</h2>
-        <div class="final-score" id="finalScore">0</div>
-        <p class="game-over-note">sequences completed</p>
-
-        {% if not current_user.is_authenticated %}
-        <div class="signup-cta">
-            <h3>Track Your Progress</h3>
-            <p>Create a free account to save your scores, build your cognitive profile, and compete on the leaderboard.
-            </p>
-            <div class="cta-buttons">
-                <a href="{{ url_for('register') }}" class="btn btn-primary">Create Account</a>
-                <button class="btn btn-secondary" id="restartBtn">Play Again</button>
+    <div class="game-over-banner" id="gameOver">
+        <div class="banner-content">
+            <div class="banner-stats">
+                <h2 id="bannerMessage">Game Over!</h2>
+                <div class="score-details">
+                    <span id="finalScore">0</span> sequences completed
+                    {% if current_user.is_authenticated %}
+                    • <span id="xpGained" class="xp-text"></span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="banner-actions">
+                {% if not current_user.is_authenticated %}
+                <a href="{{ url_for('register') }}" class="btn btn-secondary">Sign Up to Save</a>
+                {% endif %}
+                <button class="btn btn-primary" id="restartBtn">Try Again</button>
             </div>
         </div>
-        {% else %}
-        <p id="xpGained"></p>
-        <button class="btn btn-primary btn-start" id="restartBtn">Play Again</button>
-        {% endif %}
     </div>
 </div>
 {% endblock %}
@@ -503,13 +601,40 @@
     let spinCounterClockwise = false;
     let responseTimesMs = [];
     let responsePhaseLastInputAt = 0;
-    const DEFAULT_SPIN_DURATION_SECONDS = 120;
+    let introHintTimeoutId = null;
+    let isFirstRound = true;
+    const INTRO_HINT_DELAY_MS = 2000;
+    const SPIN_BASE_DURATION_SECONDS = 105;
+    const SPIN_REDUCTION_PER_LEVEL = 7;
+    const SPIN_MIN_DURATION_SECONDS = 70;
     const SPIN_START_LEVEL = 5;
     const globalAudio = window.SynapyAudio || null;
+    const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+    function clearIntroHint() {
+        if (introHintTimeoutId) {
+            clearTimeout(introHintTimeoutId);
+            introHintTimeoutId = null;
+        }
+        const existing = document.querySelector('.intro-hint');
+        if (existing) existing.remove();
+    }
+
+    function scheduleIntroHint(cellIndex) {
+        clearIntroHint();
+        introHintTimeoutId = setTimeout(() => {
+            const cell = cells[cellIndex];
+            if (!cell || !isPlaying || isShowingSequence) return;
+            const hint = document.createElement('span');
+            hint.className = 'intro-hint';
+            hint.textContent = isTouchDevice ? 'Tap here' : 'Click here';
+            cell.appendChild(hint);
+        }, INTRO_HINT_DELAY_MS);
+    }
 
     // --- Web Audio API Setup ---
     let audioCtx = null;
-    // Base frequencies for Solfège (Do, Re, Mi, Fa, Sol, La, Ti) in C Major (C4 to B4)
+    // Base frequencies for Solfege (Do, Re, Mi, Fa, Sol, La, Ti) in C Major (C4 to B4)
     const baseFrequencies = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88];
 
     function isSoundEnabled() {
@@ -589,9 +714,19 @@
 
         const pop = document.createElement('span');
         pop.className = 'tile-progress-pop';
-        pop.textContent = String(value);
+        const svgPath = 'M12 2C12 6.627 17.373 12 24 12C17.373 12 12 17.373 12 24C12 17.373 6.627 12 0 12C6.627 12 12 6.627 12 2Z';
+        pop.innerHTML = `
+            <svg class="tile-sparkle sp-1" viewBox="0 0 24 24" fill="none"><path d="${svgPath}" fill="currentColor"/></svg>
+            <span class="pop-text">+${value}</span>
+            <svg class="tile-sparkle sp-2" viewBox="0 0 24 24" fill="none"><path d="${svgPath}" fill="currentColor"/></svg>
+            <svg class="tile-sparkle sp-3" viewBox="0 0 24 24" fill="none"><path d="${svgPath}" fill="currentColor"/></svg>
+        `;
+
         cell.appendChild(pop);
-        pop.addEventListener('animationend', () => pop.remove(), { once: true });
+
+        pop.addEventListener('animationend', (e) => {
+            if (e.target === pop) pop.remove();
+        });
     }
 
     function nowMs() {
@@ -622,9 +757,9 @@
     }
 
     function getAdminRotationSeconds() {
-        if (!isAdmin || !adminRotationSecondsEl) return DEFAULT_SPIN_DURATION_SECONDS;
+        if (!isAdmin || !adminRotationSecondsEl) return SPIN_BASE_DURATION_SECONDS;
         const raw = Number.parseInt(adminRotationSecondsEl.value, 10);
-        if (Number.isNaN(raw)) return DEFAULT_SPIN_DURATION_SECONDS;
+        if (Number.isNaN(raw)) return SPIN_BASE_DURATION_SECONDS;
         return Math.max(10, Math.min(240, raw));
     }
 
@@ -632,9 +767,15 @@
         return Boolean(isAdmin && adminForceRotationEl && adminForceRotationEl.checked);
     }
 
+    function getSpinDurationSeconds() {
+        const levelsIntoSpin = Math.max(0, level - SPIN_START_LEVEL);
+        const duration = SPIN_BASE_DURATION_SECONDS - (levelsIntoSpin * SPIN_REDUCTION_PER_LEVEL);
+        return Math.max(SPIN_MIN_DURATION_SECONDS, duration);
+    }
+
     function applyGridSpinSpeed() {
         if (!gridEl) return;
-        const spinSeconds = getAdminRotationSeconds();
+        const spinSeconds = isAdmin ? getAdminRotationSeconds() : getSpinDurationSeconds();
         gridEl.style.setProperty('--grid-spin-duration', `${spinSeconds}s`);
     }
 
@@ -662,8 +803,7 @@
         }
 
         isPlaying = false;
-        gameOverEl.style.display = 'none';
-        gameAreaEl.style.display = 'block';
+        gameOverEl.classList.remove('show');
         startBtn.style.display = 'inline-block';
         if (adminStartPanelEl) {
             adminStartPanelEl.style.display = 'flex';
@@ -691,10 +831,12 @@
             sessionId = data.session_id;
         }
 
+        clearIntroHint();
         sequence = [];
         playerSequence = [];
         responseTimesMs = [];
         responsePhaseLastInputAt = 0;
+        isFirstRound = true;
         score = adminStartScore;
         level = adminStartScore + 1;
         for (let i = 0; i < adminStartScore; i++) {
@@ -708,8 +850,7 @@
         if (adminStartPanelEl) {
             adminStartPanelEl.style.display = 'none';
         }
-        gameOverEl.style.display = 'none';
-        gameAreaEl.style.display = 'block';
+        gameOverEl.classList.remove('show');
 
         nextRound();
     }
@@ -730,24 +871,32 @@
             isShowingSequence = false;
             markPlayerTurnStart();
             updateGridSpin();
+            if (isFirstRound) {
+                scheduleIntroHint(sequence[0]);
+            }
             return;
         }
 
+        const isIntroFlash = sequence.length === 1;
+        const flashDuration = isIntroFlash ? 900 : 400;
+
         const cell = cells[sequence[index]];
         cell.classList.add('active');
-        playTone(index); // Play the procedural tone based on the sequence position
+        if (isIntroFlash) cell.classList.add('intro-flash');
+        playTone(index);
 
         setTimeout(() => {
-            cell.classList.remove('active');
+            cell.classList.remove('active', 'intro-flash');
             setTimeout(() => showSequence(index + 1), 200);
-        }, 400);
+        }, flashDuration);
     }
 
     function handleCellClick(index) {
         if (!isPlaying || isShowingSequence) return;
 
-        // Auto-init audio just in case they click before starting (though UI prevents this)
         initAudio();
+        clearIntroHint();
+        isFirstRound = false;
 
         const cell = cells[index];
         recordResponseSample();
@@ -805,29 +954,29 @@
 
         const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
 
-        if (isAuthenticated && sessionId) {
-            const res = await fetch(`/api/session/${sessionId}/end`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    score: score,
-                    accuracy: score > 0 ? 1.0 : 0,
-                    rounds_completed: score,
-                    avg_response_time_ms: avgResponseTimeMs,
-                    raw_data: {
-                        response_samples: responseTimesMs.length
-                    }
-                })
-            });
-            const data = await res.json();
-            if (xpGainedEl) {
-                xpGainedEl.textContent = `+${data.xp_earned} XP`;
-            }
+    if (isAuthenticated && sessionId) {
+        const res = await fetch(`/api/session/${sessionId}/end`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                score: score,
+                accuracy: score > 0 ? 1.0 : 0,
+                rounds_completed: score,
+                avg_response_time_ms: avgResponseTimeMs,
+                raw_data: {
+                    response_samples: responseTimesMs.length
+                }
+            })
+        });
+        const data = await res.json();
+        if (xpGainedEl) {
+            const tmpl = document.getElementById('neuronSvgTemplate');
+            xpGainedEl.innerHTML = `+${data.xp_earned} ${tmpl ? tmpl.innerHTML : 'neurons'}`;
         }
+    }
 
-        gameAreaEl.style.display = 'none';
-        gameOverEl.style.display = 'block';
-        finalScoreEl.textContent = score;
+    gameOverEl.classList.add('show');
+    finalScoreEl.textContent = score;
     }
 
     cells.forEach((cell, index) => {

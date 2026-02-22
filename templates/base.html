@@ -277,6 +277,70 @@
 
     {% block content %}{% endblock %}
 
+    <template id="neuronSvgTemplate">
+        <svg class="neuron-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"
+            style="width: 22px; height: 22px; vertical-align: middle; margin-left: 4px; overflow: visible; padding-bottom: 2px;">
+            <style>
+                .n-core-pulse {
+                    animation: n-core-anim 2.5s ease-in-out infinite alternate;
+                    transform-origin: center;
+                }
+
+                .n-float {
+                    animation: n-float-anim 4s ease-in-out infinite alternate;
+                }
+
+                .n-flow {
+                    stroke-dasharray: 4 6;
+                    animation: n-flow-anim 12s linear infinite;
+                }
+
+                @keyframes n-core-anim {
+                    0% {
+                        filter: drop-shadow(0 0 2px #d8b4fe);
+                        transform: scale(0.9);
+                    }
+
+                    100% {
+                        filter: drop-shadow(0 0 6px #e879f9);
+                        transform: scale(1.1);
+                    }
+                }
+
+                @keyframes n-flow-anim {
+                    to {
+                        stroke-dashoffset: -100;
+                    }
+                }
+
+                @keyframes n-float-anim {
+                    0% {
+                        transform: translateY(0.5px);
+                    }
+
+                    100% {
+                        transform: translateY(-1.5px);
+                    }
+                }
+            </style>
+            <g class="n-float">
+                <circle cx="18" cy="17" r="10" fill="rgba(124, 58, 237, 0.15)" filter="blur(4px)" />
+                <path
+                    d="M10 24 C8 28 6 30 4 30 M26 24 C28 28 30 30 32 30 M18 7 C18 4 20 2 22 2 M12 11 L8 7 M24 11 L28 7"
+                    stroke="#8b5cf6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" />
+                <path class="n-flow" d="M18 17 L18 7 M18 17 L10 24 M18 17 L26 24 M18 17 L12 11 M18 17 L24 11"
+                    stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round" />
+                <circle cx="18" cy="7" r="2" fill="#c084fc" />
+                <circle cx="10" cy="24" r="2.5" fill="#a78bfa" />
+                <circle cx="26" cy="24" r="2.5" fill="#a78bfa" />
+                <circle cx="12" cy="11" r="1.5" fill="#c084fc" />
+                <circle cx="24" cy="11" r="1.5" fill="#c084fc" />
+                <circle cx="18" cy="17" r="5.5" fill="#1e1b4b" stroke="#d8b4fe" stroke-width="1.8" />
+                <circle cx="18" cy="17" r="2.5" fill="#e879f9" class="n-core-pulse" />
+            </g>
+        </svg>
+    </template>
+
     <script>
         (() => {
             const STORAGE_KEY = 'synapy_sfx_enabled';
