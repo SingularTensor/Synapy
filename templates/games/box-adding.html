@@ -685,6 +685,7 @@
     const restartBtnEl = document.getElementById('restartBtn');
 
     const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const BOX_LABELS = ['1', '2', '3', '4'];
     const START_FLASH_MS = 1800;
     const globalAudio = window.SynapyAudio || null;
@@ -1334,7 +1335,10 @@
             try {
                 const res = await fetch('/api/session/start', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
                     body: JSON.stringify({ game_slug: 'box-adding', difficulty: 1 }),
                 });
                 const data = await res.json();
@@ -1390,7 +1394,10 @@
             try {
                 const res = await fetch(`/api/session/${sessionId}/end`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
                     body: JSON.stringify({
                         score: score,
                         accuracy: accuracy,

@@ -76,13 +76,13 @@ class SessionPayloadValidationTests(unittest.TestCase):
         db.session.commit()
 
         self.client = self.app.test_client()
-        csrf_token = self._fetch_csrf_token('/login')
+        self.csrf_token = self._fetch_csrf_token('/login')
         login_response = self.client.post(
             '/login',
             data={
                 'username': self.user.username,
                 'password': 'password',
-                'csrf_token': csrf_token,
+                'csrf_token': self.csrf_token,
             },
             follow_redirects=False,
         )
@@ -98,10 +98,14 @@ class SessionPayloadValidationTests(unittest.TestCase):
         response = self.client.post(
             '/api/session/start',
             json={'game_slug': self.free_slug, 'difficulty': 1},
+            headers=self._csrf_headers(),
         )
         self.assertEqual(response.status_code, 200)
         payload = response.get_json() or {}
         return payload['session_id']
+
+    def _csrf_headers(self):
+        return {'X-CSRFToken': self.csrf_token}
 
     def _fetch_csrf_token(self, path):
         response = self.client.get(path)
@@ -125,6 +129,7 @@ class SessionPayloadValidationTests(unittest.TestCase):
             '/api/session/start',
             data='[]',
             content_type='application/json',
+            headers=self._csrf_headers(),
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn('JSON object', (response.get_json() or {}).get('error', ''))
@@ -133,14 +138,23 @@ class SessionPayloadValidationTests(unittest.TestCase):
         response = self.client.post(
             '/api/session/start',
             json={'game_slug': self.free_slug, 'difficulty': 99},
+            headers=self._csrf_headers(),
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn('difficulty', (response.get_json() or {}).get('error', ''))
+
+    def test_start_rejects_missing_csrf_token(self):
+        response = self.client.post(
+            '/api/session/start',
+            json={'game_slug': self.free_slug, 'difficulty': 1},
+        )
+        self.assertEqual(response.status_code, 400)
 
     def test_start_premium_gating_matches_end_premium_gating(self):
         premium_start = self.client.post(
             '/api/session/start',
             json={'game_slug': self.premium_slug, 'difficulty': 1},
+            headers=self._csrf_headers(),
         )
         self.assertEqual(premium_start.status_code, 403)
 
@@ -156,6 +170,7 @@ class SessionPayloadValidationTests(unittest.TestCase):
         premium_end = self.client.post(
             f'/api/session/{session.id}/end',
             json=self._valid_end_payload(),
+            headers=self._csrf_headers(),
         )
         self.assertEqual(premium_end.status_code, 403)
 
@@ -166,6 +181,7 @@ class SessionPayloadValidationTests(unittest.TestCase):
         start_response = self.client.post(
             '/api/session/start',
             json={'game_slug': self.premium_slug, 'difficulty': 1},
+            headers=self._csrf_headers(),
         )
         self.assertEqual(start_response.status_code, 200)
         session_id = (start_response.get_json() or {}).get('session_id')
@@ -174,6 +190,7 @@ class SessionPayloadValidationTests(unittest.TestCase):
         end_response = self.client.post(
             f'/api/session/{session_id}/end',
             json=self._valid_end_payload(),
+            headers=self._csrf_headers(),
         )
         self.assertEqual(end_response.status_code, 200)
 
@@ -186,6 +203,7 @@ class SessionPayloadValidationTests(unittest.TestCase):
                 'rounds_completed': 4,
                 'avg_response_time_ms': 500,
             },
+            headers=self._csrf_headers(),
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn('accuracy', (response.get_json() or {}).get('error', ''))
@@ -194,7 +212,11 @@ class SessionPayloadValidationTests(unittest.TestCase):
         session_id = self._start_free_session()
         payload = self._valid_end_payload()
         payload['accuracy'] = 1.2
-        response = self.client.post(f'/api/session/{session_id}/end', json=payload)
+        response = self.client.post(
+            f'/api/session/{session_id}/end',
+            json=payload,
+            headers=self._csrf_headers(),
+        )
         self.assertEqual(response.status_code, 400)
         self.assertIn('accuracy', (response.get_json() or {}).get('error', ''))
 
@@ -203,7 +225,11 @@ class SessionPayloadValidationTests(unittest.TestCase):
         payload = self._valid_end_payload()
         payload['avg_response_time_ms'] = None
 
-        response = self.client.post(f'/api/session/{session_id}/end', json=payload)
+        response = self.client.post(
+            f'/api/session/{session_id}/end',
+            json=payload,
+            headers=self._csrf_headers(),
+        )
         self.assertEqual(response.status_code, 200)
 
         session_row = db.session.get(GameSession, session_id)

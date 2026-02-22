@@ -379,6 +379,7 @@
     const answerButtons = Array.from(document.querySelectorAll('.answer-btn'));
 
     const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const globalAudio = window.SynapyAudio || null;
 
     const GAME_SLUG = 'color-word';
@@ -695,7 +696,10 @@
         try {
             const res = await fetch('/api/session/start', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
                 body: JSON.stringify({ game_slug: GAME_SLUG, difficulty: 1 }),
             });
             const data = await res.json();
@@ -710,7 +714,10 @@
         try {
             const res = await fetch(`/api/session/${sessionId}/end`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
                 body: JSON.stringify({
                     score: score,
                     accuracy: getAccuracy(),

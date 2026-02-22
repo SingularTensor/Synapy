@@ -590,6 +590,7 @@
     const adminForceRotationEl = document.getElementById('adminForceRotation');
     const adminRotationSecondsEl = document.getElementById('adminRotationSeconds');
     const isAdmin = {{ 'true' if current_user.is_authenticated and current_user.is_admin else 'false' }};
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
     let sequence = [];
     let playerSequence = [];
@@ -824,7 +825,10 @@
         if (isAuthenticated) {
             const res = await fetch('/api/session/start', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
                 body: JSON.stringify({ game_slug: 'sequence-memory', difficulty: 1 })
             });
             const data = await res.json();
@@ -957,7 +961,10 @@
     if (isAuthenticated && sessionId) {
         const res = await fetch(`/api/session/${sessionId}/end`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
             body: JSON.stringify({
                 score: score,
                 accuracy: score > 0 ? 1.0 : 0,
