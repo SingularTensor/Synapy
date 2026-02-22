@@ -41,6 +41,38 @@
         color: #fff;
     }
 
+    .neuron-balance {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        margin-top: 4px;
+        border-radius: 8px;
+        background: rgba(124, 58, 237, 0.08);
+        border: 1px solid rgba(167, 139, 250, 0.15);
+    }
+
+    .neuron-icon {
+        width: 32px;
+        height: 32px;
+        flex-shrink: 0;
+    }
+
+    .neuron-count {
+        color: #c4b5fd;
+        font-weight: 700;
+        font-size: 1.05rem;
+        letter-spacing: 0.02em;
+    }
+
+    .neuron-count::after {
+        content: ' neurons';
+        font-weight: 500;
+        font-size: 0.8rem;
+        color: #8b7fc7;
+        letter-spacing: 0;
+    }
+
     /* Main Content Area */
     .hero-cards {
         display: grid;
@@ -292,6 +324,85 @@
                 <span>🏆</span> Assessments
             </a>
 
+            {% if current_user.is_authenticated %}
+            <div class="neuron-balance">
+                <svg class="neuron-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"
+                    style="overflow: visible;">
+                    <style>
+                        .n-core-pulse {
+                            animation: n-core-anim 2.5s ease-in-out infinite alternate;
+                            transform-origin: center;
+                        }
+
+                        .n-float {
+                            animation: n-float-anim 4s ease-in-out infinite alternate;
+                        }
+
+                        .n-flow {
+                            stroke-dasharray: 4 6;
+                            animation: n-flow-anim 12s linear infinite;
+                        }
+
+                        @keyframes n-core-anim {
+                            0% {
+                                filter: drop-shadow(0 0 2px #d8b4fe);
+                                transform: scale(0.9);
+                            }
+
+                            100% {
+                                filter: drop-shadow(0 0 6px #e879f9);
+                                transform: scale(1.1);
+                            }
+                        }
+
+                        @keyframes n-flow-anim {
+                            to {
+                                stroke-dashoffset: -100;
+                            }
+                        }
+
+                        @keyframes n-float-anim {
+                            0% {
+                                transform: translateY(0.5px);
+                            }
+
+                            100% {
+                                transform: translateY(-1.5px);
+                            }
+                        }
+                    </style>
+                    <g class="n-float">
+                        <!-- Glowing backdrop -->
+                        <circle cx="18" cy="17" r="10" fill="rgba(124, 58, 237, 0.15)" filter="blur(4px)" />
+
+                        <!-- Distal dendrite extensions -->
+                        <path
+                            d="M10 24 C8 28 6 30 4 30 M26 24 C28 28 30 30 32 30 M18 7 C18 4 20 2 22 2 M12 11 L8 7 M24 11 L28 7"
+                            stroke="#8b5cf6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"
+                            opacity="0.4" />
+
+                        <!-- Primary connections (Animated flow) -->
+                        <path class="n-flow" d="M18 17 L18 7 M18 17 L10 24 M18 17 L26 24 M18 17 L12 11 M18 17 L24 11"
+                            stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round" />
+
+                        <!-- Synaptic terminals -->
+                        <circle cx="18" cy="7" r="2" fill="#c084fc" />
+                        <circle cx="10" cy="24" r="2.5" fill="#a78bfa" />
+                        <circle cx="26" cy="24" r="2.5" fill="#a78bfa" />
+                        <circle cx="12" cy="11" r="1.5" fill="#c084fc" />
+                        <circle cx="24" cy="11" r="1.5" fill="#c084fc" />
+
+                        <!-- Soma (Cell Body) -->
+                        <circle cx="18" cy="17" r="5.5" fill="#1e1b4b" stroke="#d8b4fe" stroke-width="1.8" />
+
+                        <!-- Nucleus / Energy Core -->
+                        <circle cx="18" cy="17" r="2.5" fill="#e879f9" class="n-core-pulse" />
+                    </g>
+                </svg>
+                <span class="neuron-count">{{ current_user.total_xp }}</span>
+            </div>
+            {% endif %}
+
             <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0 15px 0;">
 
             {% if not current_user.is_authenticated %}
@@ -357,42 +468,44 @@
         <!-- Problems Table -->
         <div class="table-wrap">
             <table class="problems-table">
-            <thead>
-                <tr>
-                    <th>Status</th>
-                    <th>Title</th>
-                    <th>Difficulty</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Database populated games -->
-                {% for game in games %}
-                <tr class="problem-row" data-category="{{ game.industry }}">
-                    <td></td>
-                    <td>
-                        {% if game.is_coming_soon %}
-                        <a href="{{ url_for('coming_soon', game_slug=game.slug) }}" class="problem-title">
-                            {{ loop.index }}. {{ game.name }}
-                            <span class="coming-soon-badge">Coming Soon</span>
-                            {% if game.access_level == 'premium' %}<span class="lock-icon">&#128274;</span>{% endif %}
-                        </a>
-                        {% elif game.access_level == 'premium' %}
-                        <a href="#" class="problem-title">
-                            {{ loop.index }}. {{ game.name }} <span class="lock-icon">🔒</span>
-                        </a>
-                        {% else %}
-                        <a href="{% if current_user.is_authenticated %}{{ url_for('play_game', game_slug=game.slug) }}{% else %}{{ url_for('try_game', game_slug=game.slug) }}{% endif %}" class="problem-title">
-                            {{ loop.index }}. {{ game.name }}
-                        </a>
-                        {% endif %}
-                    </td>
-                    <td
-                        class="{% if loop.index % 3 == 0 %}diff-hard{% elif loop.index % 2 == 0 %}diff-med{% else %}diff-easy{% endif %}">
-                        {% if loop.index % 3 == 0 %}Hard{% elif loop.index % 2 == 0 %}Med.{% else %}Easy{% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Title</th>
+                        <th>Difficulty</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Database populated games -->
+                    {% for game in games %}
+                    <tr class="problem-row" data-category="{{ game.industry }}">
+                        <td></td>
+                        <td>
+                            {% if game.is_coming_soon %}
+                            <a href="{{ url_for('coming_soon', game_slug=game.slug) }}" class="problem-title">
+                                {{ loop.index }}. {{ game.name }}
+                                <span class="coming-soon-badge">Coming Soon</span>
+                                {% if game.access_level == 'premium' %}<span class="lock-icon">&#128274;</span>{% endif
+                                %}
+                            </a>
+                            {% elif game.access_level == 'premium' %}
+                            <a href="#" class="problem-title">
+                                {{ loop.index }}. {{ game.name }} <span class="lock-icon">🔒</span>
+                            </a>
+                            {% else %}
+                            <a href="{% if current_user.is_authenticated %}{{ url_for('play_game', game_slug=game.slug) }}{% else %}{{ url_for('try_game', game_slug=game.slug) }}{% endif %}"
+                                class="problem-title">
+                                {{ loop.index }}. {{ game.name }}
+                            </a>
+                            {% endif %}
+                        </td>
+                        <td
+                            class="{% if loop.index % 3 == 0 %}diff-hard{% elif loop.index % 2 == 0 %}diff-med{% else %}diff-easy{% endif %}">
+                            {% if loop.index % 3 == 0 %}Hard{% elif loop.index % 2 == 0 %}Med.{% else %}Easy{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
             </table>
         </div>
     </main>
