@@ -4,7 +4,7 @@ from functools import wraps
 from flask import render_template, request, jsonify, redirect, url_for, flash, abort
 from flask_login import login_user, logout_user, login_required, current_user
 
-from app import app
+from app import app, limiter
 from database import db, User, GameType, GameSession, CognitiveScore, COGNITIVE_DOMAINS
 
 COGNITIVE_WEIGHT_VERSION = '2026-02-22-v4'
@@ -308,6 +308,7 @@ def problems():
 
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit(lambda: app.config['RATE_LIMIT_LOGIN'], methods=['POST'])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('problems'))
@@ -330,6 +331,7 @@ def login():
 
 
 @app.route('/register', methods=['GET', 'POST'])
+@limiter.limit(lambda: app.config['RATE_LIMIT_REGISTER'], methods=['POST'])
 def register():
     if current_user.is_authenticated:
         return redirect(url_for('problems'))
@@ -754,6 +756,7 @@ def admin_panel():
 @app.route('/admin/users/<int:user_id>/premium', methods=['POST'])
 @login_required
 @admin_required
+@limiter.limit(lambda: app.config['RATE_LIMIT_ADMIN_MUTATIONS'], methods=['POST'])
 def set_user_premium_access(user_id):
     target_user = db.session.get(User, user_id)
     if target_user is None:

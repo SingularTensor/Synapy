@@ -47,6 +47,36 @@ python app.py
 
 Then visit `http://127.0.0.1:5000` in your browser.
 
+## Environment Hardening
+
+Security settings are environment-driven, so dev stays easy while production can be strict.
+
+```bash
+# environment mode
+APP_ENV=production
+
+# required in production
+SECRET_KEY=replace-with-long-random-secret
+DATABASE_URL=sqlite:///synapy.db
+
+# runtime toggles
+DEBUG=false
+SESSION_COOKIE_SECURE=true
+REMEMBER_COOKIE_SECURE=true
+SESSION_COOKIE_SAMESITE=Lax
+WTF_CSRF_SSL_STRICT=true
+SESSION_LIFETIME_MINUTES=10080
+
+# rate limiting
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_LOGIN="20 per minute"
+RATE_LIMIT_REGISTER="10 per minute"
+RATE_LIMIT_ADMIN_MUTATIONS="30 per minute"
+RATELIMIT_STORAGE_URI=memory://
+```
+
+In development, defaults are intentionally looser and do not require `SECRET_KEY`.
+
 ## Database Migrations
 
 ```bash
