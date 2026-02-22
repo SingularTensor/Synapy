@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Synapy{% endblock %}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        nav.elite-nav {
+            background: #1a1a1a;
+            border-bottom: 1px solid #333;
+            padding: 0 40px;
+            height: 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.95rem;
+        }
+
+        .nav-left,
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            height: 100%;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #fff;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            margin-right: 10px;
+        }
+
+        .nav-links a,
+        .auth-links a,
+        .nav-right .nav-link {
+            color: #9e9e9e;
+            text-decoration: none;
+            transition: color 0.2s;
+            height: 100%;
+            display: inline-flex;
+            align-items: center;
+            position: relative;
+        }
+
+        .nav-username {
+            color: #d1d5db;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .nav-links a:hover,
+        .auth-links a:hover,
+        .nav-right .nav-link:hover {
+            color: #fff;
+        }
+
+        .main-links {
+            display: flex;
+            height: 100%;
+        }
+
+        .main-links a {
+            padding: 0 5px;
+        }
+
+        .main-links a.active {
+            color: #fff;
+        }
+
+        .main-links a.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #fff;
+        }
+
+        .auth-links {
+            color: #777;
+            font-size: 0.9rem;
+        }
+
+        .auth-links .divider {
+            margin: 0 5px;
+        }
+
+        .btn-premium {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #fff;
+            font-weight: 600;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            text-decoration: inline-block;
+        }
+
+        .btn-premium:hover {
+            opacity: 0.9;
+            color: #fff;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: #8B5CF6;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #2a2a4a;
+            color: white;
+        }
+
+        .flash-messages {
+            padding: 10px 30px;
+        }
+
+        .flash {
+            padding: 12px 20px;
+            background: #ff6b6b20;
+            border: 1px solid #ff6b6b;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            nav.elite-nav {
+                padding: 8px 14px;
+                height: auto;
+                min-height: 60px;
+                flex-wrap: wrap;
+                row-gap: 8px;
+            }
+
+            .nav-left,
+            .nav-right {
+                gap: 12px;
+                min-width: 0;
+                flex-wrap: wrap;
+            }
+
+            .logo {
+                margin-right: 0;
+            }
+
+            .main-links {
+                gap: 10px;
+            }
+
+            .main-links a {
+                padding: 0;
+            }
+
+            .nav-links a,
+            .auth-links a,
+            .nav-right .nav-link {
+                font-size: 0.9rem;
+            }
+
+            .btn-premium {
+                padding: 6px 12px;
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (max-width: 520px) {
+            nav.elite-nav {
+                align-items: stretch;
+            }
+
+            .nav-left,
+            .nav-right {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .nav-right {
+                gap: 10px;
+            }
+        }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+
+<body>
+    <nav class="elite-nav">
+        <div class="nav-left">
+            <a href="{{ url_for('index') }}" class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                    style="margin-right: 8px; vertical-align: middle;">
+                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#8B5CF6" stroke-width="2" stroke-linejoin="round" />
+                    <path d="M2 17L12 22L22 17" stroke="#8B5CF6" stroke-width="2" stroke-linejoin="round" />
+                    <path d="M2 12L12 17L22 12" stroke="#8B5CF6" stroke-width="2" stroke-linejoin="round" />
+                </svg>
+                Synapy
+            </a>
+            <div class="nav-links main-links">
+                <a href="{{ url_for('index') }}"
+                    class="{% if request.endpoint == 'index' %}active{% endif %}">Explore</a>
+                <a href="{{ url_for('problems') }}"
+                    class="{% if request.endpoint == 'problems' %}active{% endif %}">Problems</a>
+            </div>
+        </div>
+        <div class="nav-right">
+            {% if current_user.is_authenticated %}
+            <span class="nav-username">@{{ current_user.username }}</span>
+            <a href="{{ url_for('dashboard') }}" class="nav-link">Dashboard</a>
+            <a href="{{ url_for('logout') }}" class="nav-link text-muted">Logout</a>
+            <a href="#" class="btn btn-premium">Upgrade</a>
+            {% else %}
+            <div class="auth-links">
+                <a href="{{ url_for('register') }}">Register</a> <span class="divider">or</span> <a
+                    href="{{ url_for('login') }}">Log in</a>
+            </div>
+            <a href="#" class="btn btn-premium">Upgrade</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <div class="flash-messages">
+        {% for message in messages %}
+        <div class="flash">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+
+    <script>
+        (() => {
+            const STORAGE_KEY = 'synapy_sfx_enabled';
+            let audioCtx = null;
+
+            function isEnabled() {
+                try {
+                    const saved = window.localStorage.getItem(STORAGE_KEY);
+                    if (saved === null) {
+                        window.localStorage.setItem(STORAGE_KEY, 'true');
+                        return true;
+                    }
+                    return saved !== 'false';
+                } catch (err) {
+                    return true;
+                }
+            }
+
+            function setEnabled(enabled) {
+                try {
+                    window.localStorage.setItem(STORAGE_KEY, enabled ? 'true' : 'false');
+                } catch (err) {
+                    // no-op
+                }
+            }
+
+            function ensureContext() {
+                if (!isEnabled()) return null;
+                if (!audioCtx) {
+                    const Ctx = window.AudioContext || window.webkitAudioContext;
+                    if (!Ctx) return null;
+                    audioCtx = new Ctx();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume().catch(() => { });
+                }
+                return audioCtx;
+            }
+
+            function playWithContext(run) {
+                if (!isEnabled()) return;
+                const ctx = ensureContext();
+                if (!ctx) return;
+                run(ctx);
+            }
+
+            function playTone(frequency = 660, duration = 0.14, type = 'sine', gain = 0.085, startDelay = 0) {
+                playWithContext((ctx) => {
+                    const start = ctx.currentTime + startDelay;
+                    const osc = ctx.createOscillator();
+                    const gainNode = ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(frequency, start);
+                    gainNode.gain.setValueAtTime(0.0001, start);
+                    gainNode.gain.exponentialRampToValueAtTime(gain, start + 0.015);
+                    gainNode.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+                    osc.connect(gainNode);
+                    gainNode.connect(ctx.destination);
+                    osc.start(start);
+                    osc.stop(start + duration);
+                });
+            }
+
+            function playSuccess() {
+                playTone(987.8, 0.14, 'triangle', 0.09, 0.0);
+                playTone(1318.5, 0.16, 'sine', 0.08, 0.1);
+            }
+
+            function playError() {
+                playWithContext((ctx) => {
+                    const now = ctx.currentTime;
+                    const osc = ctx.createOscillator();
+                    const gainNode = ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(170, now);
+                    gainNode.gain.setValueAtTime(0.0001, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.07, now + 0.02);
+                    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.26);
+                    osc.connect(gainNode);
+                    gainNode.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.26);
+                });
+            }
+
+            function armContext() {
+                ensureContext();
+                window.removeEventListener('pointerdown', armContext, true);
+                window.removeEventListener('keydown', armContext, true);
+            }
+
+            window.addEventListener('pointerdown', armContext, { capture: true, passive: true });
+            window.addEventListener('keydown', armContext, true);
+
+            window.SynapyAudio = {
+                isEnabled,
+                setEnabled,
+                ensureContext,
+                playTone,
+                playSuccess,
+                playError,
+            };
+        })();
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

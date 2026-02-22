@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Coming Soon - Synapy{% endblock %}
+
+{% block head %}
+<style>
+    .coming-soon-wrap {
+        max-width: 760px;
+        margin: 48px auto;
+        padding: 0 16px;
+    }
+
+    .coming-soon-card {
+        background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 0.9));
+        border: 1px solid rgba(71, 85, 105, 0.55);
+        border-radius: 16px;
+        padding: 28px 22px;
+        text-align: center;
+    }
+
+    .coming-soon-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #dbeafe;
+        background: rgba(59, 130, 246, 0.16);
+        border: 1px solid rgba(96, 165, 250, 0.45);
+        border-radius: 999px;
+        padding: 4px 11px;
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+    }
+
+    .coming-soon-title {
+        color: #f8fafc;
+        font-size: clamp(1.7rem, 5vw, 2.2rem);
+        margin-bottom: 10px;
+    }
+
+    .coming-soon-desc {
+        color: #cbd5e1;
+        margin-bottom: 16px;
+        font-size: 1rem;
+    }
+
+    .coming-soon-slug {
+        color: #94a3b8;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 0.86rem;
+        margin-bottom: 20px;
+    }
+
+    .coming-soon-actions {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    @media (max-width: 560px) {
+        .coming-soon-wrap {
+            margin: 22px auto;
+            padding: 0 10px;
+        }
+
+        .coming-soon-card {
+            padding: 20px 14px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="coming-soon-wrap">
+    <div class="coming-soon-card">
+        <div class="coming-soon-badge">Coming Soon</div>
+        <h1 class="coming-soon-title">{{ game_type.name }}</h1>
+        <p class="coming-soon-desc">This game is listed, but the playable version is not live yet.</p>
+        <p class="coming-soon-slug">{{ game_type.slug }}</p>
+        <div class="coming-soon-actions">
+            <a href="{{ url_for('problems') }}" class="btn btn-primary">Back to Problems</a>
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Open Dashboard</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

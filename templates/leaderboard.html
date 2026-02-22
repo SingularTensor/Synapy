@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}Leaderboard - Synapy{% endblock %}
+
+{% block head %}
+<style>
+    .leaderboard {
+        padding: 40px 20px;
+        max-width: 700px;
+        margin: 0 auto;
+    }
+    .leaderboard h1 {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+    .leaderboard-table {
+        background: #1a1a2e;
+        border-radius: 16px;
+        overflow: hidden;
+    }
+    .leaderboard-row {
+        display: flex;
+        align-items: center;
+        padding: 15px 25px;
+        border-bottom: 1px solid #2a2a4a;
+    }
+    .leaderboard-row:last-child {
+        border-bottom: none;
+    }
+    .leaderboard-row.current-user {
+        background: #8B5CF620;
+    }
+    .rank {
+        width: 50px;
+        font-weight: bold;
+        color: #888;
+    }
+    .rank.gold { color: #FFD700; }
+    .rank.silver { color: #C0C0C0; }
+    .rank.bronze { color: #CD7F32; }
+    .user-info {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #8B5CF6, #3B82F6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+    }
+    .username {
+        color: #fff;
+    }
+    .xp {
+        font-weight: bold;
+        color: #8B5CF6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="leaderboard">
+    <h1>Leaderboard</h1>
+    <div class="leaderboard-table">
+        {% for user in users %}
+        <div class="leaderboard-row {% if current_user.is_authenticated and user.id == current_user.id %}current-user{% endif %}">
+            <div class="rank {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
+                #{{ loop.index }}
+            </div>
+            <div class="user-info">
+                <div class="user-avatar">{{ user.username[0].upper() }}</div>
+                <span class="username">{{ user.username }}</span>
+            </div>
+            <div class="xp">{{ user.total_xp }} XP</div>
+        </div>
+        {% else %}
+        <div class="leaderboard-row">
+            <p style="color: #888; text-align: center; width: 100%;">No users yet</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

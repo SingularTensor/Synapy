@@ -1,0 +1,447 @@
+{% extends 'base.html' %}
+
+{% block title %}Train - Synapy{% endblock %}
+
+{% block head %}
+<style>
+    .dashboard {
+        padding: 40px 20px;
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+
+    .welcome {
+        margin-bottom: 40px;
+    }
+
+    .welcome h1 {
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+
+    .stats {
+        display: flex;
+        gap: 20px;
+        color: #888;
+    }
+
+    .stat {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .stat-value {
+        color: #8B5CF6;
+        font-weight: bold;
+    }
+
+    .games-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
+    }
+
+    .game-card {
+        background: #1a1a2e;
+        border-radius: 16px;
+        padding: 25px;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        text-decoration: none;
+        color: inherit;
+        display: block;
+    }
+
+    .game-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .game-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-bottom: 15px;
+    }
+
+    .game-card h3 {
+        margin-bottom: 8px;
+        color: #fff;
+    }
+
+    .game-card p {
+        color: #888;
+        font-size: 0.9rem;
+        margin-bottom: 15px;
+    }
+
+    .game-domain {
+        display: inline-block;
+        padding: 4px 10px;
+        background: #2a2a4a;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        color: #a0a0a0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-layout">
+    <div class="welcome-header" style="margin-bottom: 30px;">
+        <h1 style="font-size: 2rem; margin-bottom: 5px;">Performance Analytics</h1>
+        <p style="color: #888;">Analyze your cognitive profile and industry readiness.</p>
+    </div>
+
+    <!-- Top Metrics Row -->
+    <div class="metrics-row"
+        style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
+        <!-- Global Rating -->
+        <div class="metric-card"
+            style="background: #1a1a2e; padding: 25px; border-radius: 16px; border: 1px solid #333; position: relative; overflow: hidden;">
+            <div style="color: #888; font-size: 0.9rem; margin-bottom: 10px;">Global Synaptic Rating</div>
+            <div
+                style="font-size: 2.5rem; font-weight: bold; color: #8B5CF6; display: flex; align-items: baseline; gap: 10px;">
+                1450 <span style="font-size: 1rem; color: #10B981;">▲ +12</span>
+            </div>
+            <div style="font-size: 0.85rem; color: #a0a0a0; margin-top: 5px;">Equivalent to top 24% of applicants</div>
+            <!-- Decorative Background Element -->
+            <div style="position: absolute; right: -20px; bottom: -20px; font-size: 8rem; opacity: 0.05;">🧠</div>
+        </div>
+
+        <!-- Working Memory -->
+        <div class="metric-card"
+            style="background: #1a1a2e; padding: 25px; border-radius: 16px; border: 1px solid #333;">
+            <div style="color: #888; font-size: 0.9rem; margin-bottom: 10px;">Best Discipline: Memory</div>
+            <div style="font-size: 2.5rem; font-weight: bold; color: #3B82F6;">
+                98th <span style="font-size: 1rem; color: #888; font-weight: normal;">percentile</span>
+            </div>
+            <div style="font-size: 0.85rem; color: #a0a0a0; margin-top: 5px;">Avg Span: 8.2 Items</div>
+        </div>
+
+        <!-- Reaction Time -->
+        <div class="metric-card"
+            style="background: #1a1a2e; padding: 25px; border-radius: 16px; border: 1px solid #333;">
+            <div style="color: #888; font-size: 0.9rem; margin-bottom: 10px;">Avg Processing Speed</div>
+            <div style="font-size: 2.5rem; font-weight: bold; color: #F59E0B;">
+                245 <span style="font-size: 1rem; color: #888; font-weight: normal;">ms</span>
+            </div>
+            <div style="font-size: 0.85rem; color: #a0a0a0; margin-top: 5px;">Faster than 82% of users</div>
+        </div>
+    </div>
+
+    <!-- Main Chart & History Row -->
+    <div class="analytics-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+
+        <!-- Trait Chart -->
+        <div class="chart-container"
+            style="background: #1a1a2e; padding: 30px; border-radius: 16px; border: 1px solid #333; position: relative;">
+
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 20px;">
+                <h3 style="margin: 0;">Trait Breakdown</h3>
+
+                <!-- Chart Controls -->
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span
+                        style="font-size: 0.75rem; color: #F59E0B; background: rgba(245, 158, 11, 0.1); padding: 3px 8px; border-radius: 12px; border: 1px solid rgba(245, 158, 11, 0.2); font-weight: bold; letter-spacing: 0.5px;">💎
+                        PREMIUM</span>
+                    <select id="chartModeToggle"
+                        style="background: #0f0f1a; color: #fff; border: 1px solid #333; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; cursor: pointer; outline: none; font-family: 'Inter', sans-serif;">
+                        <option value="bar">View: Bar</option>
+                        <option value="radar">View: Spider</option>
+                    </select>
+                    <select id="industryToggle"
+                        style="background: #0f0f1a; color: #fff; border: 1px solid #333; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; cursor: pointer; outline: none; font-family: 'Inter', sans-serif;">
+                        <option value="general">Lens: Core Traits</option>
+                        <option value="logistics">Lens: Logistics</option>
+                        <option value="retail">Lens: Retail</option>
+                        <option value="software">Lens: Software Eng</option>
+                    </select>
+                </div>
+            </div>
+            <div style="position: relative; height: 350px; width: 100%; display: flex; justify-content: center;">
+                <canvas id="cognitiveTraitChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Recent History Table -->
+        <div class="history-container"
+            style="background: #1a1a2e; padding: 30px; border-radius: 16px; border: 1px solid #333;">
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 20px;">
+                <h3 style="margin: 0;">Recent Assessments</h3>
+                <a href="{{ url_for('problems') }}"
+                    style="color: #8B5CF6; text-decoration: none; font-size: 0.9rem;">View All Puzzles →</a>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th
+                            style="text-align: left; padding: 10px; color: #888; font-size: 0.85rem; border-bottom: 1px solid #222;">
+                            Puzzle</th>
+                        <th
+                            style="text-align: center; padding: 10px; color: #888; font-size: 0.85rem; border-bottom: 1px solid #222;">
+                            Score</th>
+                        <th
+                            style="text-align: right; padding: 10px; color: #888; font-size: 0.85rem; border-bottom: 1px solid #222;">
+                            Rating ∆</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 15px 10px; border-bottom: 1px solid #222;">
+                            <div style="font-weight: bold; color: #fff;">Sequence Memory</div>
+                            <div style="font-size: 0.8rem; color: #888;">2 mins ago</div>
+                        </td>
+                        <td
+                            style="padding: 15px 10px; border-bottom: 1px solid #222; text-align: center; font-weight: bold; color: #3B82F6;">
+                            8/10</td>
+                        <td
+                            style="padding: 15px 10px; border-bottom: 1px solid #222; text-align: right; color: #10B981; font-weight: bold;">
+                            +12</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 15px 10px; border-bottom: 1px solid #222;">
+                            <div style="font-weight: bold; color: #fff;">Reaction Time</div>
+                            <div style="font-size: 0.8rem; color: #888;">yesterday</div>
+                        </td>
+                        <td
+                            style="padding: 15px 10px; border-bottom: 1px solid #222; text-align: center; font-weight: bold; color: #F59E0B;">
+                            230ms</td>
+                        <td
+                            style="padding: 15px 10px; border-bottom: 1px solid #222; text-align: right; color: #10B981; font-weight: bold;">
+                            +5</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 15px 10px; border-bottom: 1px solid #222;">
+                            <div style="font-weight: bold; color: #fff;">Mental Math</div>
+                            <div style="font-size: 0.8rem; color: #888;">2 days ago</div>
+                        </td>
+                        <td
+                            style="padding: 15px 10px; border-bottom: 1px solid #222; text-align: center; font-weight: bold; color: #EF4444;">
+                            14 pts</td>
+                        <td
+                            style="padding: 15px 10px; border-bottom: 1px solid #222; text-align: right; color: #EF4444; font-weight: bold;">
+                            -3</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const ctx = document.getElementById('cognitiveTraitChart').getContext('2d');
+        const industryToggleEl = document.getElementById('industryToggle');
+        const chartModeToggleEl = document.getElementById('chartModeToggle');
+
+        Chart.defaults.color = '#888';
+        Chart.defaults.font.family = "'Inter', sans-serif";
+
+        function clampTrait(value) {
+            return Math.max(0, Math.min(100, Number(value) || 0));
+        }
+
+        const baseTraitScores = {
+            processingSpeed: clampTrait({{ (cognitive_scores['processing_speed'].score if 'processing_speed' in cognitive_scores else 0) | round(2) }}),
+            workingMemory: clampTrait({{ (cognitive_scores['working_memory'].score if 'working_memory' in cognitive_scores else 0) | round(2) }}),
+            spatialReasoning: clampTrait({{ (cognitive_scores['pattern_recognition'].score if 'pattern_recognition' in cognitive_scores else 0) | round(2) }}),
+            attention: clampTrait({{ (cognitive_scores['attention'].score if 'attention' in cognitive_scores else 0) | round(2) }}),
+            verbalComprehension: clampTrait({{ (cognitive_scores['verbal_fluency'].score if 'verbal_fluency' in cognitive_scores else 0) | round(2) }}),
+        };
+
+        const baseUserData = [
+            baseTraitScores.processingSpeed,
+            baseTraitScores.workingMemory,
+            baseTraitScores.spatialReasoning,
+            baseTraitScores.attention,
+            baseTraitScores.verbalComprehension,
+        ];
+
+        const industryProfiles = {
+            general: {
+                labels: ['Processing Speed', 'Working Memory', 'Spatial Reasoning', 'Attention', 'Verbal Comprehension'],
+                userData: baseUserData,
+            },
+            retail: {
+                labels: ['Register Fluency', 'Customer De-escalation', 'Inventory Spatial', 'Shift Stamina', 'Floor Multi-tasking'],
+                userData: [
+                    clampTrait(baseTraitScores.processingSpeed * 0.40 + baseTraitScores.attention * 0.30 + baseTraitScores.verbalComprehension * 0.30),
+                    clampTrait(baseTraitScores.attention * 0.45 + baseTraitScores.workingMemory * 0.30 + baseTraitScores.verbalComprehension * 0.25),
+                    clampTrait(baseTraitScores.spatialReasoning * 0.50 + baseTraitScores.processingSpeed * 0.25 + baseTraitScores.workingMemory * 0.25),
+                    clampTrait(baseTraitScores.attention * 0.50 + baseTraitScores.processingSpeed * 0.25 + baseTraitScores.workingMemory * 0.25),
+                    clampTrait(baseTraitScores.processingSpeed * 0.35 + baseTraitScores.attention * 0.35 + baseTraitScores.workingMemory * 0.30),
+                ],
+            },
+            logistics: {
+                labels: ['Route Optimization', 'Hazard Awareness', 'Packing Efficiency', 'Sustained Focus', 'Coordination'],
+                userData: [
+                    clampTrait(baseTraitScores.spatialReasoning * 0.45 + baseTraitScores.processingSpeed * 0.35 + baseTraitScores.workingMemory * 0.20),
+                    clampTrait(baseTraitScores.attention * 0.45 + baseTraitScores.spatialReasoning * 0.30 + baseTraitScores.workingMemory * 0.25),
+                    clampTrait(baseTraitScores.spatialReasoning * 0.50 + baseTraitScores.processingSpeed * 0.30 + baseTraitScores.workingMemory * 0.20),
+                    clampTrait(baseTraitScores.attention * 0.50 + baseTraitScores.workingMemory * 0.30 + baseTraitScores.processingSpeed * 0.20),
+                    clampTrait(baseTraitScores.processingSpeed * 0.30 + baseTraitScores.spatialReasoning * 0.35 + baseTraitScores.attention * 0.35),
+                ],
+            },
+            software: {
+                labels: ['Syntax Recall', 'Bug Identification', 'Architecture Vision', 'Deep Work', 'Code Review EQ'],
+                userData: [
+                    clampTrait(baseTraitScores.workingMemory * 0.45 + baseTraitScores.processingSpeed * 0.30 + baseTraitScores.verbalComprehension * 0.25),
+                    clampTrait(baseTraitScores.workingMemory * 0.35 + baseTraitScores.spatialReasoning * 0.35 + baseTraitScores.processingSpeed * 0.30),
+                    clampTrait(baseTraitScores.spatialReasoning * 0.45 + baseTraitScores.workingMemory * 0.40 + baseTraitScores.attention * 0.15),
+                    clampTrait(baseTraitScores.attention * 0.50 + baseTraitScores.workingMemory * 0.30 + baseTraitScores.processingSpeed * 0.20),
+                    clampTrait(baseTraitScores.verbalComprehension * 0.45 + baseTraitScores.attention * 0.30 + baseTraitScores.workingMemory * 0.25),
+                ],
+            }
+        };
+
+        let traitChart = null;
+
+        function createDatasets(profile, mode) {
+            if (mode === 'radar') {
+                return [
+                {
+                    label: 'Trait Score',
+                    data: profile.userData,
+                    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                    borderColor: 'rgba(139, 92, 246, 1)',
+                    pointBackgroundColor: 'rgba(139, 92, 246, 1)',
+                    pointBorderColor: '#fff',
+                    borderWidth: 2,
+                },
+                ];
+            }
+
+            return [
+            {
+                label: 'Trait Score',
+                data: profile.userData,
+                backgroundColor: 'rgba(139, 92, 246, 0.62)',
+                borderColor: 'rgba(139, 92, 246, 1)',
+                borderWidth: 1,
+                borderRadius: 8,
+                maxBarThickness: 34,
+            },
+            ];
+        }
+
+        function createOptions(mode) {
+            const commonPlugins = {
+                legend: {
+                    display: false,
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#a0a0a0',
+                    borderColor: '#333',
+                    borderWidth: 1,
+                    padding: 12,
+                    callbacks: {
+                        label: function (context) {
+                            return context.dataset.label + ': ' + context.raw;
+                        }
+                    }
+                }
+            };
+
+            if (mode === 'radar') {
+                return {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            pointLabels: {
+                                color: '#a0a0a0',
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            ticks: {
+                                display: false,
+                                min: 0,
+                                max: 100
+                            }
+                        }
+                    },
+                    plugins: commonPlugins
+                };
+            }
+
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#a0a0a0',
+                            font: {
+                                size: 12
+                            },
+                            maxRotation: 0,
+                            minRotation: 0
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            stepSize: 20,
+                            color: '#9ca3af'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    }
+                },
+                plugins: commonPlugins
+            };
+        }
+
+        function renderChart() {
+            const selectedIndustry = industryToggleEl.value || 'general';
+            const selectedMode = chartModeToggleEl.value || 'bar';
+            const profile = industryProfiles[selectedIndustry] || industryProfiles.general;
+            const chartType = selectedMode === 'radar' ? 'radar' : 'bar';
+
+            if (traitChart) {
+                traitChart.destroy();
+            }
+
+            traitChart = new Chart(ctx, {
+                type: chartType,
+                data: {
+                    labels: profile.labels,
+                    datasets: createDatasets(profile, selectedMode)
+                },
+                options: createOptions(selectedMode)
+            });
+        }
+
+        industryToggleEl.value = 'general';
+        chartModeToggleEl.value = 'bar';
+        industryToggleEl.addEventListener('change', renderChart);
+        chartModeToggleEl.addEventListener('change', renderChart);
+        renderChart();
+    });
+</script>
+{% endblock %}

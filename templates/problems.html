@@ -1,0 +1,427 @@
+{% extends 'base.html' %}
+
+{% block title %}Synapy - Problems{% endblock %}
+
+{% block head %}
+<style>
+    .problems-layout {
+        display: grid;
+        grid-template-columns: 250px minmax(0, 1fr);
+        padding: 30px 40px 50px 40px;
+        gap: 40px;
+        align-items: start;
+    }
+
+    .problems-layout aside,
+    .problems-layout main {
+        min-width: 0;
+    }
+
+    /* Left Sidebar */
+    .sidebar-menu {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .sidebar-item {
+        padding: 10px 16px;
+        border-radius: 8px;
+        color: #a0a0a0;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: all 0.2s;
+    }
+
+    .sidebar-item:hover,
+    .sidebar-item.active {
+        background: #2a2a3a;
+        color: #fff;
+    }
+
+    /* Main Content Area */
+    .hero-cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        margin-bottom: 30px;
+    }
+
+    .card {
+        border-radius: 12px;
+        padding: 20px;
+        color: white;
+        text-decoration: none;
+        position: relative;
+        overflow: hidden;
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .card-title {
+        font-weight: 700;
+        font-size: 1.1rem;
+        margin-bottom: 5px;
+    }
+
+    .card-subtitle {
+        font-size: 0.85rem;
+        opacity: 0.8;
+    }
+
+    .card-1 {
+        background: linear-gradient(135deg, #1a1a2e, #2a2a4a);
+        border: 1px solid #333;
+    }
+
+    .card-2 {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+    }
+
+    .card-3 {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+    }
+
+    .card .btn-sm {
+        background: white;
+        color: black;
+        padding: 5px 12px;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        align-self: flex-start;
+        margin-top: 15px;
+    }
+
+    /* Filters */
+    .filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .filter-btn {
+        background: #232333;
+        color: #a0a0a0;
+        border: 1px solid #333;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .filter-btn:hover,
+    .filter-btn.active {
+        background: #333344;
+        color: #fff;
+        border-color: #555;
+    }
+
+    .filter-btn.active {
+        background: #e5e7eb;
+        color: #000;
+    }
+
+    /* Problems Table */
+    .problems-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table-wrap {
+        width: 100%;
+        overflow-x: auto;
+        border: 1px solid #2a2a3a;
+        border-radius: 12px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .problems-table th {
+        text-align: left;
+        padding: 12px;
+        color: #777;
+        font-weight: 500;
+        font-size: 0.9rem;
+        border-bottom: 1px solid #333;
+    }
+
+    .problems-table td {
+        padding: 14px 12px;
+        border-bottom: 1px solid #222;
+        font-size: 0.95rem;
+    }
+
+    .problems-table tr:hover {
+        background: #1f1f2e;
+    }
+
+    .problem-title {
+        color: #fff;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .problem-title:hover {
+        color: #8B5CF6;
+    }
+
+    .diff-easy {
+        color: #10b981;
+    }
+
+    .diff-med {
+        color: #f59e0b;
+    }
+
+    .diff-hard {
+        color: #ef4444;
+    }
+
+    .lock-icon {
+        color: #f59e0b;
+        font-size: 0.8rem;
+    }
+
+    .coming-soon-badge {
+        color: #dbeafe;
+        background: rgba(59, 130, 246, 0.14);
+        border: 1px solid rgba(96, 165, 250, 0.4);
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+    }
+
+    .search-wrap {
+        margin-bottom: 20px;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 10px 15px;
+        background: #232333;
+        border: 1px solid #333;
+        border-radius: 8px;
+        color: #fff;
+    }
+
+    @media (max-width: 1100px) {
+        .problems-layout {
+            grid-template-columns: 220px minmax(0, 1fr);
+            padding: 24px 20px 40px 20px;
+            gap: 24px;
+        }
+
+        .hero-cards {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 860px) {
+        .problems-layout {
+            grid-template-columns: 1fr;
+            padding: 18px 14px 28px 14px;
+            gap: 20px;
+        }
+
+        .sidebar-menu {
+            gap: 6px;
+        }
+
+        .hero-cards {
+            grid-template-columns: 1fr;
+            margin-bottom: 20px;
+        }
+
+        .filters {
+            gap: 8px;
+        }
+
+        .filter-btn {
+            font-size: 0.8rem;
+            padding: 6px 12px;
+        }
+
+        .table-wrap {
+            border-radius: 10px;
+        }
+
+        .problems-table {
+            min-width: 520px;
+        }
+    }
+
+    @media (max-width: 420px) {
+        .sidebar-item {
+            padding: 9px 12px;
+            gap: 8px;
+        }
+
+        .card {
+            padding: 16px;
+            min-height: 108px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="problems-layout">
+
+    <!-- Left Nav -->
+    <aside>
+        <div class="sidebar-menu">
+            <a href="#" class="sidebar-item active">
+                <span>📚</span> All Problems
+            </a>
+            <a href="#" class="sidebar-item">
+                <span>🎯</span> Study Plan
+            </a>
+            <a href="#" class="sidebar-item">
+                <span>🏆</span> Assessments
+            </a>
+
+            <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0 15px 0;">
+
+            {% if not current_user.is_authenticated %}
+            <div style="text-align: center; color: #888; font-size: 0.85rem; padding: 0 10px;">
+                <p style="margin-bottom: 15px; line-height: 1.4;">Sign in to view lists and monitor progress.</p>
+                <a href="{{ url_for('login') }}"
+                    style="background: #e5e7eb; color: #000; padding: 6px 16px; border-radius: 20px; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    Sign in
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main>
+        <!-- Hero Cards -->
+        <div class="hero-cards">
+            <a href="#" class="card card-1">
+                <div>
+                    <div class="card-title">Daily G-Factor</div>
+                    <div class="card-subtitle">General cognitive warmup</div>
+                </div>
+                <div class="btn-sm">Begin Now</div>
+            </a>
+            <a href="#" class="card card-2">
+                <div>
+                    <div class="card-title">Foodservice Rush</div>
+                    <div class="card-subtitle">Beginner Friendly • Day 1</div>
+                </div>
+                <div class="btn-sm">Start Learning</div>
+            </a>
+            <a href="#" class="card card-3">
+                <div>
+                    <div class="card-title">Logistics & Spatial</div>
+                    <div class="card-subtitle">Top Interview Puzzles</div>
+                </div>
+                <div class="btn-sm">Get Started</div>
+            </a>
+        </div>
+
+        <!-- Topic Filters -->
+        <div class="filters">
+            <button class="filter-btn active" data-filter="all">All Topics</button>
+            <button class="filter-btn" data-filter="General Puzzles">General Puzzles</button>
+            <button class="filter-btn" data-filter="Retail">Retail</button>
+            <button class="filter-btn" data-filter="Foodservice">Foodservice</button>
+            <button class="filter-btn" data-filter="Hospitality">Hospitality</button>
+            <button class="filter-btn" data-filter="Software Eng">Software Eng</button>
+            <button class="filter-btn" data-filter="Logistics">Logistics</button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-wrap">
+            <input type="text" class="search-input" placeholder="Search problems...">
+        </div>
+
+        <!-- Problems Table -->
+        <div class="table-wrap">
+            <table class="problems-table">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Title</th>
+                    <th>Difficulty</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Database populated games -->
+                {% for game in games %}
+                <tr class="problem-row" data-category="{{ game.industry }}">
+                    <td></td>
+                    <td>
+                        {% if game.is_coming_soon %}
+                        <a href="{{ url_for('coming_soon', game_slug=game.slug) }}" class="problem-title">
+                            {{ loop.index }}. {{ game.name }}
+                            <span class="coming-soon-badge">Coming Soon</span>
+                            {% if game.access_level == 'premium' %}<span class="lock-icon">&#128274;</span>{% endif %}
+                        </a>
+                        {% elif game.access_level == 'premium' %}
+                        <a href="#" class="problem-title">
+                            {{ loop.index }}. {{ game.name }} <span class="lock-icon">🔒</span>
+                        </a>
+                        {% else %}
+                        <a href="{% if current_user.is_authenticated %}{{ url_for('play_game', game_slug=game.slug) }}{% else %}{{ url_for('try_game', game_slug=game.slug) }}{% endif %}" class="problem-title">
+                            {{ loop.index }}. {{ game.name }}
+                        </a>
+                        {% endif %}
+                    </td>
+                    <td
+                        class="{% if loop.index % 3 == 0 %}diff-hard{% elif loop.index % 2 == 0 %}diff-med{% else %}diff-easy{% endif %}">
+                        {% if loop.index % 3 == 0 %}Hard{% elif loop.index % 2 == 0 %}Med.{% else %}Easy{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Filtering Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const buttons = document.querySelectorAll('.filter-btn');
+            const rows = document.querySelectorAll('.problem-row');
+
+            buttons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Remove active styling from all buttons
+                    buttons.forEach(b => b.classList.remove('active'));
+                    // Add active styling to clicked button
+                    btn.classList.add('active');
+
+                    // Filter logic
+                    const filter = btn.getAttribute('data-filter');
+                    rows.forEach(row => {
+                        if (filter === 'all' || row.getAttribute('data-category') === filter) {
+                            row.style.display = '';
+                        } else {
+                            row.style.display = 'none';
+                        }
+                    });
+                });
+            });
+        });
+    </script>
+</div>
+{% endblock %}

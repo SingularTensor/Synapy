@@ -1,0 +1,1318 @@
+{% extends 'base.html' %}
+
+{% block title %}Box Adding - Synapy{% endblock %}
+
+{% block head %}
+<style>
+    html.box-adding-scroll-lock,
+    body.box-adding-scroll-lock {
+        overflow: hidden;
+        overscroll-behavior: none;
+    }
+
+    .box-adding-container {
+        max-width: 760px;
+        margin: 36px auto;
+        padding: 0 18px;
+    }
+
+    .game-panel {
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        padding: 0;
+    }
+
+    .prompt {
+        min-height: 28px;
+        margin-bottom: 14px;
+        text-align: center;
+        color: #e5e7eb;
+        font-weight: 600;
+    }
+
+    .play-frames {
+        display: grid;
+        gap: 12px;
+    }
+
+    .play-frame {
+        background: #101624;
+        border: 1px solid #2c3445;
+        border-radius: 12px;
+        padding: 14px 12px;
+    }
+
+    .box-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+        max-width: 420px;
+        margin: 0 auto;
+    }
+
+    .box-cell {
+        --ring-color: rgba(34, 211, 238, 0.92);
+        position: relative;
+        width: 43%;
+        max-width: 90px;
+        min-width: 58px;
+        margin: 0 auto;
+        border-radius: 50%;
+        border: none;
+        background: transparent;
+        aspect-ratio: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #f8fafc;
+        font-size: 1.2rem;
+        font-weight: 800;
+        letter-spacing: 0.01em;
+        box-shadow: none;
+        transition: transform 0.14s ease, box-shadow 0.14s ease;
+    }
+
+    .box-ring {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0.48;
+        transition: opacity 0.14s ease;
+    }
+
+    .box-ring circle {
+        fill: none;
+        stroke: var(--ring-color);
+        stroke-width: 4.5;
+        stroke-dasharray: 16 12;
+        stroke-linecap: round;
+        transition: stroke 0.14s ease;
+    }
+
+    .box-value {
+        position: relative;
+        z-index: 2;
+        transition: color 0.14s ease, transform 0.14s ease, opacity 0.14s ease;
+    }
+
+    .box-label {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.92rem;
+        font-weight: 700;
+        color: rgba(148, 163, 184, 0.34);
+        letter-spacing: 0.02em;
+        pointer-events: none;
+        user-select: none;
+        z-index: 1;
+    }
+
+    .box-cell.revealed {
+        background: transparent;
+    }
+
+    .box-cell.correct {
+        --ring-color: rgba(52, 211, 153, 0.95);
+        box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.24), 0 0 14px rgba(52, 211, 153, 0.18);
+    }
+
+    .box-cell.wrong {
+        --ring-color: rgba(248, 113, 113, 0.95);
+        box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.28), 0 0 14px rgba(248, 113, 113, 0.2);
+    }
+
+    .box-grid.flash-values .box-cell {
+        background: transparent;
+        box-shadow: none;
+        border-radius: 0;
+    }
+
+    .box-grid.flash-values .box-ring {
+        opacity: 0;
+    }
+
+    .box-grid.flash-values .box-label {
+        opacity: 0;
+    }
+
+    .box-grid.flash-values .box-value {
+        font-size: 2.25rem;
+        transform: scale(1.04);
+    }
+
+    .pair-frame {
+        max-width: 420px;
+        margin: 0 auto;
+    }
+
+    .pair-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+    }
+
+    .pair-circle {
+        width: 56px;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        border: 1px solid #334155;
+        background: linear-gradient(145deg, #1f2937, #111827);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #e5e7eb;
+        font-size: 1.25rem;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
+    }
+
+    .pair-circle.ready {
+        border-color: #f59e0b;
+        color: #fff7ed;
+    }
+
+    .pair-op {
+        min-width: 24px;
+        text-align: center;
+        color: #9ca3af;
+        font-size: 1.2rem;
+        font-weight: 700;
+    }
+
+    .answer-form {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+    }
+
+    .answer-form.hidden {
+        display: none;
+    }
+
+    .wheel-wrap {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .wheel-wrap.hidden {
+        display: none;
+    }
+
+    @media (hover: none), (pointer: coarse) {
+        .wheel-wrap {
+            display: flex;
+        }
+    }
+
+    .wheel-entry {
+        min-height: 22px;
+        color: #e2e8f0;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        font-size: 1rem;
+    }
+
+    .digit-wheel {
+        --wheel-digit-radius: 123px;
+        position: relative;
+        width: 360px;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        border: 1px solid #334155;
+        background: radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.82));
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        transition: border-color 0.12s ease, opacity 0.12s ease;
+    }
+
+    .digit-wheel::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: repeating-conic-gradient(
+            from -18deg,
+            rgba(148, 163, 184, 0.44) 0deg 1.2deg,
+            transparent 1.2deg 36deg
+        );
+        pointer-events: none;
+    }
+
+    .digit-wheel.disabled {
+        opacity: 0.5;
+    }
+
+    .digit-wheel.swiping {
+        border-color: #60a5fa;
+    }
+
+    .wheel-center {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 115px;
+        height: 115px;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        border: 1px solid #334155;
+        background: #111827;
+        color: #93c5fd;
+        font-size: 1.02rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        letter-spacing: 0.06em;
+        z-index: 2;
+        pointer-events: none;
+    }
+
+    .wheel-trace-canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.16s ease;
+        z-index: 4;
+    }
+
+    .wheel-trace-canvas.active {
+        opacity: 1;
+    }
+
+    .wheel-digit {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%) rotate(calc(var(--i) * 36deg)) translateY(calc(var(--wheel-digit-radius) * -1)) rotate(calc(var(--i) * -36deg));
+        color: #cbd5e1;
+        font-weight: 800;
+        font-size: 1.34rem;
+        pointer-events: none;
+        z-index: 3;
+    }
+
+    .answer-input {
+        width: 140px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid #334155;
+        background: #0f172a;
+        color: #f8fafc;
+        font-size: 1rem;
+        text-align: center;
+        font-weight: 700;
+    }
+
+    .answer-input:focus {
+        outline: none;
+        border-color: #60a5fa;
+        box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.15);
+    }
+
+    .start-wrap {
+        text-align: center;
+    }
+
+    .start-btn {
+        min-width: 136px;
+    }
+
+    .game-controls {
+        margin-top: 14px;
+    }
+
+    .game-over {
+        display: none;
+        margin-top: 14px;
+        background: #141a24;
+        border: 1px solid #2c3445;
+        border-radius: 16px;
+        padding: 22px;
+        text-align: center;
+    }
+
+    .game-over h2 {
+        margin-bottom: 8px;
+        color: #f8fafc;
+    }
+
+    .final-score {
+        font-size: 2.7rem;
+        font-weight: 800;
+        color: #fbbf24;
+        margin-bottom: 8px;
+    }
+
+    .game-over-note {
+        color: #9ca3af;
+        margin-bottom: 12px;
+    }
+
+    .result-detail {
+        color: #e5e7eb;
+        margin-bottom: 14px;
+        font-size: 0.93rem;
+    }
+
+    #xpGained {
+        color: #4ade80;
+        margin-bottom: 12px;
+        font-weight: 600;
+    }
+
+    .cta-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    @media (max-width: 560px) {
+        .box-adding-container {
+            margin: 10px auto 12px;
+            padding: 0 10px;
+        }
+
+        .prompt {
+            min-height: 0;
+            margin-bottom: 6px;
+        }
+
+        .play-frames {
+            gap: 8px;
+        }
+
+        .play-frame {
+            padding: 10px 8px;
+        }
+
+        .box-grid {
+            gap: 12px;
+            max-width: 100%;
+        }
+
+        .box-cell {
+            font-size: 1.05rem;
+        }
+
+        .box-label {
+            font-size: 1.68rem;
+        }
+
+        .game-over {
+            padding: 16px;
+        }
+
+        .pair-circle {
+            width: 44px;
+            font-size: 0.98rem;
+        }
+
+        .digit-wheel {
+            --wheel-size: min(96vw, 380px);
+            width: var(--wheel-size);
+            --wheel-digit-radius: calc(var(--wheel-size) * 0.34);
+        }
+
+        .wheel-digit {
+            font-size: calc(var(--wheel-size) * 0.088);
+        }
+
+        .wheel-center {
+            width: calc(var(--wheel-size) * 0.33);
+            height: calc(var(--wheel-size) * 0.33);
+            font-size: calc(var(--wheel-size) * 0.031);
+        }
+
+        .wheel-wrap {
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .wheel-entry {
+            min-height: 16px;
+            font-size: 0.9rem;
+        }
+
+        .game-controls {
+            margin-top: 8px;
+        }
+    }
+
+    @media (max-width: 560px) and (max-height: 860px) {
+        .box-adding-container {
+            margin-top: 6px;
+        }
+
+        .play-frame {
+            padding: 8px 6px;
+        }
+
+        .box-grid {
+            gap: 10px;
+        }
+
+        .box-cell {
+            width: 40%;
+            max-width: 78px;
+            min-width: 50px;
+            font-size: 0.92rem;
+        }
+
+        .box-label {
+            font-size: 1.48rem;
+        }
+
+        .pair-circle {
+            width: 38px;
+            font-size: 0.88rem;
+        }
+
+        .pair-row {
+            gap: 10px;
+        }
+
+        .digit-wheel {
+            --wheel-size: min(88vw, 322px);
+            width: var(--wheel-size);
+            --wheel-digit-radius: calc(var(--wheel-size) * 0.34);
+        }
+
+        .wheel-digit {
+            font-size: calc(var(--wheel-size) * 0.088);
+        }
+
+        .wheel-center {
+            width: calc(var(--wheel-size) * 0.33);
+            height: calc(var(--wheel-size) * 0.33);
+            font-size: calc(var(--wheel-size) * 0.031);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="box-adding-container">
+    <div class="game-panel" id="gamePanel">
+        <p class="prompt" id="promptText"></p>
+
+        <div class="play-frames">
+            <div class="pair-frame" id="pairFrame">
+                <div class="pair-row">
+                    <div class="pair-circle" id="pairFirst">?</div>
+                    <div class="pair-op" id="pairOp">?</div>
+                    <div class="pair-circle" id="pairSecond">?</div>
+                </div>
+            </div>
+
+            <div class="play-frame">
+                <div class="box-grid" id="boxGrid">
+                    <div class="box-cell" data-index="0">
+                        <svg class="box-ring" viewBox="0 0 100 100" aria-hidden="true">
+                            <circle cx="50" cy="50" r="46"></circle>
+                        </svg>
+                        <span class="box-label">1</span>
+                        <span class="box-value"></span>
+                    </div>
+                    <div class="box-cell" data-index="1">
+                        <svg class="box-ring" viewBox="0 0 100 100" aria-hidden="true">
+                            <circle cx="50" cy="50" r="46"></circle>
+                        </svg>
+                        <span class="box-label">2</span>
+                        <span class="box-value"></span>
+                    </div>
+                    <div class="box-cell" data-index="2">
+                        <svg class="box-ring" viewBox="0 0 100 100" aria-hidden="true">
+                            <circle cx="50" cy="50" r="46"></circle>
+                        </svg>
+                        <span class="box-label">3</span>
+                        <span class="box-value"></span>
+                    </div>
+                    <div class="box-cell" data-index="3">
+                        <svg class="box-ring" viewBox="0 0 100 100" aria-hidden="true">
+                            <circle cx="50" cy="50" r="46"></circle>
+                        </svg>
+                        <span class="box-label">4</span>
+                        <span class="box-value"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="game-controls" id="gameControls">
+        <form class="answer-form hidden" id="answerForm">
+            <input
+                class="answer-input"
+                id="answerInput"
+                type="number"
+                inputmode="numeric"
+                autocomplete="off"
+                placeholder="Answer"
+                disabled
+            >
+            <button class="btn btn-primary" id="submitBtn" type="submit" disabled>Submit</button>
+        </form>
+
+        <div class="wheel-wrap hidden" id="wheelWrap">
+            <div class="wheel-entry" id="wheelEntry"></div>
+            <div class="digit-wheel disabled" id="digitWheel" aria-label="Swipe input wheel">
+                <div class="wheel-center">SWIPE</div>
+                <canvas class="wheel-trace-canvas" id="wheelTraceCanvas"></canvas>
+                <span class="wheel-digit" style="--i:0">0</span>
+                <span class="wheel-digit" style="--i:1">1</span>
+                <span class="wheel-digit" style="--i:2">2</span>
+                <span class="wheel-digit" style="--i:3">3</span>
+                <span class="wheel-digit" style="--i:4">4</span>
+                <span class="wheel-digit" style="--i:5">5</span>
+                <span class="wheel-digit" style="--i:6">6</span>
+                <span class="wheel-digit" style="--i:7">7</span>
+                <span class="wheel-digit" style="--i:8">8</span>
+                <span class="wheel-digit" style="--i:9">9</span>
+            </div>
+        </div>
+
+        <div class="start-wrap">
+            <button class="btn btn-primary start-btn" id="startBtn">Start</button>
+        </div>
+    </div>
+
+    <div class="game-over" id="gameOver">
+        <h2>Game Over</h2>
+        <div class="final-score" id="finalScore">0</div>
+        <p class="game-over-note">correct rounds completed</p>
+        <p class="result-detail" id="resultDetail"></p>
+
+        {% if not current_user.is_authenticated %}
+        <div class="cta-buttons">
+            <a href="{{ url_for('register') }}" class="btn btn-primary">Create Account</a>
+            <button class="btn btn-secondary" id="restartBtn">Play Again</button>
+        </div>
+        {% else %}
+        <p id="xpGained"></p>
+        <button class="btn btn-primary" id="restartBtn">Play Again</button>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const boxCells = Array.from(document.querySelectorAll('.box-cell'));
+    const boxGridEl = document.getElementById('boxGrid');
+    const promptTextEl = document.getElementById('promptText');
+    const answerFormEl = document.getElementById('answerForm');
+    const answerInputEl = document.getElementById('answerInput');
+    const submitBtnEl = document.getElementById('submitBtn');
+    const startBtnEl = document.getElementById('startBtn');
+    const pairFirstEl = document.getElementById('pairFirst');
+    const pairSecondEl = document.getElementById('pairSecond');
+    const pairOpEl = document.getElementById('pairOp');
+    const wheelWrapEl = document.getElementById('wheelWrap');
+    const wheelEntryEl = document.getElementById('wheelEntry');
+    const digitWheelEl = document.getElementById('digitWheel');
+    const wheelTraceCanvasEl = document.getElementById('wheelTraceCanvas');
+    const gameControlsEl = document.getElementById('gameControls');
+    const gamePanelEl = document.getElementById('gamePanel');
+    const gameOverEl = document.getElementById('gameOver');
+    const finalScoreEl = document.getElementById('finalScore');
+    const resultDetailEl = document.getElementById('resultDetail');
+    const xpGainedEl = document.getElementById('xpGained');
+    const restartBtnEl = document.getElementById('restartBtn');
+
+    const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
+    const BOX_LABELS = ['1', '2', '3', '4'];
+    const START_FLASH_MS = 1200;
+    const globalAudio = window.SynapyAudio || null;
+
+    let score = 0;
+    let flashMs = START_FLASH_MS;
+    let currentValues = [1, 1, 1, 1];
+    let selectedIndices = [0, 1];
+    let currentOperation = 'add';
+    let expectedAnswer = 0;
+    let answerWindowOpen = false;
+    let isPlaying = false;
+    let roundTimer = null;
+    let sessionId = null;
+    let totalAttempts = 0;
+    let correctAttempts = 0;
+    let answerPhaseStartedAt = 0;
+    let responseTimesMs = [];
+    let pairSpinInterval = null;
+    let pairSpinTimeout = null;
+    let wheelSwipeStart = null;
+    let wheelActivePointerId = null;
+    let wheelAnswerBuffer = '';
+    let wheelTraceCtx = null;
+    let wheelTraceLastPoint = null;
+    let wheelTraceFadeTimeout = null;
+    const PAIR_SPIN_STEP_MS = 50;
+    const PAIR_RESULT_LEAD_MS = 305;
+
+    function primeAudioFromGesture() {
+        if (globalAudio && typeof globalAudio.ensureContext === 'function') {
+            globalAudio.ensureContext();
+        }
+    }
+
+    function playSuccessSfx() {
+        if (globalAudio && typeof globalAudio.playSuccess === 'function') {
+            globalAudio.playSuccess();
+        }
+    }
+
+    function playErrorSfx() {
+        if (globalAudio && typeof globalAudio.playError === 'function') {
+            globalAudio.playError();
+        }
+    }
+
+    function clearRoundTimer() {
+        if (roundTimer) {
+            clearTimeout(roundTimer);
+            roundTimer = null;
+        }
+    }
+
+    function nowMs() {
+        if (window.performance && typeof window.performance.now === 'function') {
+            return window.performance.now();
+        }
+        return Date.now();
+    }
+
+    function markAnswerPhaseStart() {
+        answerPhaseStartedAt = nowMs();
+    }
+
+    function recordAnswerResponseSample() {
+        if (!answerPhaseStartedAt) return;
+        const elapsed = Math.max(0, nowMs() - answerPhaseStartedAt);
+        responseTimesMs.push(elapsed);
+        answerPhaseStartedAt = 0;
+    }
+
+    function getAverageResponseTimeMs() {
+        if (!responseTimesMs.length) return null;
+        const total = responseTimesMs.reduce((sum, value) => sum + value, 0);
+        return Math.round(total / responseTimesMs.length);
+    }
+
+    function randomInt1to9() {
+        return Math.floor(Math.random() * 9) + 1;
+    }
+
+    function pickTwoDistinctIndices() {
+        const first = Math.floor(Math.random() * 4);
+        let second = Math.floor(Math.random() * 4);
+        while (second === first) {
+            second = Math.floor(Math.random() * 4);
+        }
+        return [first, second];
+    }
+
+    function getOperationSymbol() {
+        return currentOperation === 'mul' ? 'x' : '+';
+    }
+
+    function updateHud() {
+        // Score display is intentionally hidden during active gameplay.
+    }
+
+    function isMobileAutoAnswerEnabled() {
+        if (window.matchMedia) {
+            const isTouchLike = window.matchMedia('(hover: none), (pointer: coarse)').matches;
+            return isTouchLike && window.innerWidth <= 900;
+        }
+        return false;
+    }
+
+    function setMobileScrollLock(locked) {
+        if (!isMobileAutoAnswerEnabled()) return;
+        document.documentElement.classList.toggle('box-adding-scroll-lock', locked);
+        document.body.classList.toggle('box-adding-scroll-lock', locked);
+    }
+
+    function setAnswerFormVisible(visible) {
+        if (!answerFormEl) return;
+        answerFormEl.classList.toggle('hidden', !visible);
+    }
+
+    function setWheelVisible(visible) {
+        if (!wheelWrapEl) return;
+        wheelWrapEl.classList.toggle('hidden', !visible);
+        if (!visible) {
+            clearWheelTrail(true);
+        }
+    }
+
+    function setWheelEnabled(enabled) {
+        if (!digitWheelEl) return;
+        digitWheelEl.classList.toggle('disabled', !enabled);
+        if (!enabled) {
+            wheelSwipeStart = null;
+            wheelActivePointerId = null;
+            digitWheelEl.classList.remove('swiping');
+            clearWheelTrail(true);
+        }
+    }
+
+    function resetWheelBuffer() {
+        wheelAnswerBuffer = '';
+        if (wheelEntryEl) {
+            wheelEntryEl.textContent = '';
+        }
+    }
+
+    function submitWheelDigit(digit) {
+        if (!isMobileAutoAnswerEnabled()) return;
+        if (!isPlaying || !answerWindowOpen) return;
+
+        const expectedDigits = String(Math.abs(expectedAnswer)).length;
+        if (wheelAnswerBuffer.length >= expectedDigits) {
+            wheelAnswerBuffer = '';
+        }
+
+        wheelAnswerBuffer += String(digit);
+        if (wheelEntryEl) {
+            wheelEntryEl.textContent = wheelAnswerBuffer;
+        }
+        answerInputEl.value = wheelAnswerBuffer;
+
+        const userAnswer = Number.parseInt(wheelAnswerBuffer, 10);
+        if (Number.isNaN(userAnswer)) return;
+
+        if (userAnswer === expectedAnswer) {
+            evaluateSubmittedAnswer(userAnswer);
+            return;
+        }
+
+        if (wheelAnswerBuffer.length >= expectedDigits) {
+            evaluateSubmittedAnswer(userAnswer);
+        }
+    }
+
+    function initWheelTraceCanvas() {
+        if (!wheelTraceCanvasEl || !digitWheelEl) return;
+        const rect = digitWheelEl.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const width = Math.max(1, Math.floor(rect.width));
+        const height = Math.max(1, Math.floor(rect.height));
+
+        if (wheelTraceCanvasEl.width === Math.floor(width * dpr) && wheelTraceCanvasEl.height === Math.floor(height * dpr)) {
+            return;
+        }
+
+        wheelTraceCanvasEl.width = Math.floor(width * dpr);
+        wheelTraceCanvasEl.height = Math.floor(height * dpr);
+        wheelTraceCanvasEl.style.width = `${width}px`;
+        wheelTraceCanvasEl.style.height = `${height}px`;
+
+        wheelTraceCtx = wheelTraceCanvasEl.getContext('2d');
+        if (!wheelTraceCtx) return;
+        wheelTraceCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        wheelTraceCtx.clearRect(0, 0, width, height);
+    }
+
+    function drawWheelTraceAt(clientX, clientY, startNew = false) {
+        if (!wheelTraceCanvasEl || !digitWheelEl) return;
+        initWheelTraceCanvas();
+        if (!wheelTraceCtx) return;
+
+        if (wheelTraceFadeTimeout) {
+            clearTimeout(wheelTraceFadeTimeout);
+            wheelTraceFadeTimeout = null;
+        }
+
+        const rect = digitWheelEl.getBoundingClientRect();
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+
+        wheelTraceCanvasEl.classList.add('active');
+
+        wheelTraceCtx.lineCap = 'round';
+        wheelTraceCtx.lineJoin = 'round';
+        wheelTraceCtx.strokeStyle = 'rgba(249, 115, 22, 0.96)';
+        wheelTraceCtx.lineWidth = 8;
+        wheelTraceCtx.shadowColor = 'rgba(251, 146, 60, 0.82)';
+        wheelTraceCtx.shadowBlur = 16;
+
+        if (startNew || !wheelTraceLastPoint) {
+            wheelTraceCtx.beginPath();
+            wheelTraceCtx.arc(x, y, 4, 0, Math.PI * 2);
+            wheelTraceCtx.fillStyle = 'rgba(254, 215, 170, 0.98)';
+            wheelTraceCtx.fill();
+            wheelTraceLastPoint = { x, y };
+            return;
+        }
+
+        wheelTraceCtx.beginPath();
+        wheelTraceCtx.moveTo(wheelTraceLastPoint.x, wheelTraceLastPoint.y);
+        wheelTraceCtx.lineTo(x, y);
+        wheelTraceCtx.stroke();
+        wheelTraceLastPoint = { x, y };
+    }
+
+    function clearWheelTrail(immediate = false) {
+        if (!wheelTraceCanvasEl) return;
+        if (wheelTraceFadeTimeout) {
+            clearTimeout(wheelTraceFadeTimeout);
+            wheelTraceFadeTimeout = null;
+        }
+
+        const resetCanvas = () => {
+            if (!wheelTraceCanvasEl || !wheelTraceCtx || !digitWheelEl) return;
+            const rect = digitWheelEl.getBoundingClientRect();
+            wheelTraceCtx.clearRect(0, 0, rect.width, rect.height);
+            wheelTraceLastPoint = null;
+        };
+
+        if (immediate) {
+            wheelTraceCanvasEl.classList.remove('active');
+            resetCanvas();
+            return;
+        }
+
+        wheelTraceCanvasEl.classList.remove('active');
+        wheelTraceFadeTimeout = setTimeout(() => {
+            resetCanvas();
+            wheelTraceFadeTimeout = null;
+        }, 170);
+    }
+
+    function resolveWheelSectorFromVector(dx, dy) {
+        const angleFromUp = (Math.atan2(dy, dx) * 180 / Math.PI + 450) % 360;
+        return Math.floor((angleFromUp + 18) / 36) % 10;
+    }
+
+    function completeWheelSwipe(clientX, clientY, startX, startY) {
+        const dx = clientX - startX;
+        const dy = clientY - startY;
+        const distance = Math.hypot(dx, dy);
+        if (distance < 24) return;
+        const sector = resolveWheelSectorFromVector(dx, dy);
+        submitWheelDigit(sector);
+    }
+
+    function handleWheelTouchStart(event) {
+        if (window.PointerEvent) return;
+        if (!isMobileAutoAnswerEnabled()) return;
+        if (!isPlaying || !answerWindowOpen) return;
+        if (!digitWheelEl) return;
+
+        const touch = event.changedTouches && event.changedTouches[0];
+        if (!touch) return;
+        wheelSwipeStart = { x: touch.clientX, y: touch.clientY };
+        digitWheelEl.classList.add('swiping');
+        drawWheelTraceAt(touch.clientX, touch.clientY, true);
+        event.preventDefault();
+    }
+
+    function handleWheelTouchMove(event) {
+        if (window.PointerEvent) return;
+        if (!wheelSwipeStart) return;
+        const touch = (event.touches && event.touches[0]) || (event.changedTouches && event.changedTouches[0]);
+        if (touch) {
+            drawWheelTraceAt(touch.clientX, touch.clientY);
+        }
+        event.preventDefault();
+    }
+
+    function handleWheelTouchEnd(event) {
+        if (window.PointerEvent) return;
+        if (!wheelSwipeStart) return;
+        if (!digitWheelEl) return;
+
+        const touch = event.changedTouches && event.changedTouches[0];
+        const start = wheelSwipeStart;
+        wheelSwipeStart = null;
+        digitWheelEl.classList.remove('swiping');
+        if (touch) {
+            drawWheelTraceAt(touch.clientX, touch.clientY);
+        }
+        clearWheelTrail(false);
+        if (!touch) return;
+        completeWheelSwipe(touch.clientX, touch.clientY, start.x, start.y);
+        event.preventDefault();
+    }
+
+    function handleWheelPointerDown(event) {
+        if (!isMobileAutoAnswerEnabled()) return;
+        if (!isPlaying || !answerWindowOpen) return;
+        if (!digitWheelEl) return;
+        if (event.pointerType === 'mouse') return;
+
+        wheelSwipeStart = { x: event.clientX, y: event.clientY };
+        wheelActivePointerId = event.pointerId;
+        digitWheelEl.classList.add('swiping');
+        drawWheelTraceAt(event.clientX, event.clientY, true);
+        if (digitWheelEl.setPointerCapture) {
+            digitWheelEl.setPointerCapture(event.pointerId);
+        }
+        event.preventDefault();
+    }
+
+    function handleWheelPointerMove(event) {
+        if (wheelActivePointerId === null || event.pointerId !== wheelActivePointerId) return;
+        drawWheelTraceAt(event.clientX, event.clientY);
+        event.preventDefault();
+    }
+
+    function handleWheelPointerUp(event) {
+        if (!digitWheelEl) return;
+        if (wheelActivePointerId === null || event.pointerId !== wheelActivePointerId) return;
+
+        const start = wheelSwipeStart;
+        wheelSwipeStart = null;
+        wheelActivePointerId = null;
+        digitWheelEl.classList.remove('swiping');
+        drawWheelTraceAt(event.clientX, event.clientY);
+        clearWheelTrail(false);
+        if (start) {
+            completeWheelSwipe(event.clientX, event.clientY, start.x, start.y);
+        }
+        if (digitWheelEl.releasePointerCapture && digitWheelEl.hasPointerCapture && digitWheelEl.hasPointerCapture(event.pointerId)) {
+            digitWheelEl.releasePointerCapture(event.pointerId);
+        }
+        event.preventDefault();
+    }
+
+    function resetCellClasses() {
+        boxCells.forEach((cell) => {
+            cell.classList.remove('revealed', 'correct', 'wrong');
+        });
+    }
+
+    function highlightSelectedCells(extraClass = null) {
+        if (!extraClass) return;
+        selectedIndices.forEach((index) => {
+            const cell = boxCells[index];
+            cell.classList.add(extraClass);
+        });
+    }
+
+    function setCellValues(showValues) {
+        boxCells.forEach((cell, index) => {
+            const valueEl = cell.querySelector('.box-value');
+            valueEl.textContent = showValues ? String(currentValues[index]) : '';
+            cell.classList.toggle('revealed', showValues);
+        });
+    }
+
+    function setFlashMode(active) {
+        if (!boxGridEl) return;
+        boxGridEl.classList.toggle('flash-values', active);
+    }
+
+    function clearPairSpinAnimation() {
+        if (pairSpinInterval) {
+            clearInterval(pairSpinInterval);
+            pairSpinInterval = null;
+        }
+        if (pairSpinTimeout) {
+            clearTimeout(pairSpinTimeout);
+            pairSpinTimeout = null;
+        }
+    }
+
+    function randomBoxLabel() {
+        return BOX_LABELS[Math.floor(Math.random() * BOX_LABELS.length)];
+    }
+
+    function resetPairFrame() {
+        if (!pairFirstEl || !pairSecondEl || !pairOpEl) return;
+        clearPairSpinAnimation();
+        pairFirstEl.textContent = '?';
+        pairSecondEl.textContent = '?';
+        pairOpEl.textContent = '?';
+        pairFirstEl.classList.remove('ready');
+        pairSecondEl.classList.remove('ready');
+    }
+
+    function startPairSpinReveal() {
+        if (!pairFirstEl || !pairSecondEl || !pairOpEl) return;
+
+        clearPairSpinAnimation();
+        pairOpEl.textContent = '?';
+        pairFirstEl.classList.remove('ready');
+        pairSecondEl.classList.remove('ready');
+
+        const spinDurationMs = Math.max(220, flashMs - PAIR_RESULT_LEAD_MS);
+
+        pairFirstEl.textContent = randomBoxLabel();
+        pairSecondEl.textContent = randomBoxLabel();
+
+        pairSpinInterval = setInterval(() => {
+            pairFirstEl.textContent = randomBoxLabel();
+            pairSecondEl.textContent = randomBoxLabel();
+        }, PAIR_SPIN_STEP_MS);
+
+        pairSpinTimeout = setTimeout(() => {
+            clearPairSpinAnimation();
+            updatePairFrame(false);
+        }, spinDurationMs);
+    }
+
+    function updatePairFrame(showOperation = false) {
+        if (!pairFirstEl || !pairSecondEl || !pairOpEl) return;
+        pairFirstEl.textContent = BOX_LABELS[selectedIndices[0]];
+        pairSecondEl.textContent = BOX_LABELS[selectedIndices[1]];
+        pairOpEl.textContent = showOperation ? getOperationSymbol() : '?';
+        pairFirstEl.classList.add('ready');
+        pairSecondEl.classList.add('ready');
+    }
+
+    function buildRound() {
+        resetCellClasses();
+        currentValues = [randomInt1to9(), randomInt1to9(), randomInt1to9(), randomInt1to9()];
+        selectedIndices = pickTwoDistinctIndices();
+        currentOperation = Math.random() < 0.5 ? 'add' : 'mul';
+
+        const [first, second] = selectedIndices.map((idx) => currentValues[idx]);
+        expectedAnswer = currentOperation === 'mul' ? first * second : first + second;
+
+        setFlashMode(true);
+        setCellValues(true);
+        startPairSpinReveal();
+
+        promptTextEl.textContent = '';
+    }
+
+    function beginAnswerPhase() {
+        clearPairSpinAnimation();
+        setFlashMode(false);
+        setCellValues(false);
+        resetCellClasses();
+        updatePairFrame(true);
+        promptTextEl.textContent = '';
+        answerWindowOpen = true;
+        markAnswerPhaseStart();
+        resetWheelBuffer();
+        if (isMobileAutoAnswerEnabled()) {
+            answerInputEl.disabled = true;
+            submitBtnEl.disabled = true;
+            setWheelEnabled(true);
+        } else {
+            answerInputEl.disabled = false;
+            submitBtnEl.disabled = false;
+            answerInputEl.focus();
+        }
+    }
+
+    function startRound() {
+        clearRoundTimer();
+        answerWindowOpen = false;
+        setWheelEnabled(false);
+        answerInputEl.value = '';
+        answerInputEl.disabled = true;
+        submitBtnEl.disabled = true;
+        answerPhaseStartedAt = 0;
+        resetWheelBuffer();
+
+        buildRound();
+        roundTimer = setTimeout(beginAnswerPhase, flashMs);
+    }
+
+    function handleCorrectAnswer() {
+        correctAttempts++;
+        score++;
+        playSuccessSfx();
+        updateHud();
+        answerWindowOpen = false;
+        setWheelEnabled(false);
+        resetWheelBuffer();
+        answerInputEl.disabled = true;
+        submitBtnEl.disabled = true;
+        highlightSelectedCells('correct');
+        promptTextEl.textContent = 'Correct';
+
+        clearRoundTimer();
+        roundTimer = setTimeout(startRound, 560);
+    }
+
+    function handleWrongAnswer(userAnswer) {
+        answerWindowOpen = false;
+        playErrorSfx();
+        setWheelEnabled(false);
+        resetWheelBuffer();
+        answerInputEl.disabled = true;
+        submitBtnEl.disabled = true;
+        highlightSelectedCells('wrong');
+        promptTextEl.textContent = `Expected ${expectedAnswer}`;
+
+        clearRoundTimer();
+        roundTimer = setTimeout(() => endGame(userAnswer), 420);
+    }
+
+    function evaluateSubmittedAnswer(userAnswer) {
+        if (!isPlaying || !answerWindowOpen) return;
+        if (Number.isNaN(userAnswer)) return;
+
+        recordAnswerResponseSample();
+        totalAttempts++;
+        if (userAnswer === expectedAnswer) {
+            handleCorrectAnswer();
+        } else {
+            handleWrongAnswer(userAnswer);
+        }
+    }
+
+    async function startGame() {
+        primeAudioFromGesture();
+        clearRoundTimer();
+        isPlaying = true;
+        score = 0;
+        flashMs = START_FLASH_MS;
+        sessionId = null;
+        totalAttempts = 0;
+        correctAttempts = 0;
+        responseTimesMs = [];
+        answerPhaseStartedAt = 0;
+        answerWindowOpen = false;
+        resultDetailEl.textContent = '';
+        xpGainedEl && (xpGainedEl.textContent = '');
+
+        updateHud();
+        resetCellClasses();
+        setFlashMode(false);
+        setCellValues(false);
+        resetPairFrame();
+
+        if (isAuthenticated) {
+            try {
+                const res = await fetch('/api/session/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ game_slug: 'box-adding', difficulty: 1 }),
+                });
+                const data = await res.json();
+                sessionId = data.session_id;
+            } catch (err) {
+                sessionId = null;
+            }
+        }
+
+        gameOverEl.style.display = 'none';
+        gamePanelEl.style.display = 'block';
+        gameControlsEl.style.display = 'block';
+        if (isMobileAutoAnswerEnabled()) {
+            setAnswerFormVisible(false);
+            setWheelVisible(true);
+            setWheelEnabled(false);
+            setMobileScrollLock(true);
+            initWheelTraceCanvas();
+        } else {
+            setAnswerFormVisible(true);
+            setWheelVisible(false);
+            setMobileScrollLock(false);
+        }
+        startBtnEl.style.display = 'none';
+        startRound();
+    }
+
+    async function endGame(lastUserAnswer = null) {
+        clearRoundTimer();
+        clearPairSpinAnimation();
+        isPlaying = false;
+        answerWindowOpen = false;
+        finalScoreEl.textContent = String(score);
+        gameOverEl.style.display = 'block';
+        gamePanelEl.style.display = 'none';
+        gameControlsEl.style.display = 'none';
+        setWheelVisible(false);
+        setWheelEnabled(false);
+        resetWheelBuffer();
+        answerPhaseStartedAt = 0;
+        setMobileScrollLock(false);
+
+        if (typeof lastUserAnswer === 'number' && !Number.isNaN(lastUserAnswer)) {
+            resultDetailEl.textContent = `Your answer: ${lastUserAnswer} | Correct: ${expectedAnswer}`;
+        } else {
+            resultDetailEl.textContent = `Correct answer: ${expectedAnswer}`;
+        }
+
+        const accuracy = totalAttempts > 0 ? correctAttempts / totalAttempts : 0;
+        const avgResponseTimeMs = getAverageResponseTimeMs();
+
+        if (isAuthenticated && sessionId) {
+            try {
+                const res = await fetch(`/api/session/${sessionId}/end`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        score: score,
+                        accuracy: accuracy,
+                        rounds_completed: score,
+                        avg_response_time_ms: avgResponseTimeMs,
+                        raw_data: {
+                            total_attempts: totalAttempts,
+                            correct_attempts: correctAttempts,
+                            final_flash_ms: flashMs,
+                            operation: currentOperation,
+                            expected_answer: expectedAnswer,
+                            user_answer: lastUserAnswer,
+                            response_samples: responseTimesMs.length,
+                        },
+                    }),
+                });
+                const data = await res.json();
+                if (xpGainedEl) {
+                    xpGainedEl.textContent = `+${data.xp_earned} XP`;
+                }
+            } catch (err) {
+                if (xpGainedEl) {
+                    xpGainedEl.textContent = '';
+                }
+            }
+        }
+    }
+
+    answerFormEl.addEventListener('submit', (event) => {
+        event.preventDefault();
+        if (!isPlaying || !answerWindowOpen) return;
+
+        const userAnswer = Number.parseInt(answerInputEl.value, 10);
+        evaluateSubmittedAnswer(userAnswer);
+    });
+
+    if (digitWheelEl) {
+        digitWheelEl.addEventListener('pointerdown', handleWheelPointerDown, { passive: false });
+        digitWheelEl.addEventListener('pointermove', handleWheelPointerMove, { passive: false });
+        digitWheelEl.addEventListener('pointerup', handleWheelPointerUp, { passive: false });
+        digitWheelEl.addEventListener('pointercancel', handleWheelPointerUp, { passive: false });
+        digitWheelEl.addEventListener('touchstart', handleWheelTouchStart, { passive: false });
+        digitWheelEl.addEventListener('touchmove', handleWheelTouchMove, { passive: false });
+        digitWheelEl.addEventListener('touchend', handleWheelTouchEnd, { passive: false });
+        digitWheelEl.addEventListener('touchcancel', handleWheelTouchEnd, { passive: false });
+    }
+
+    startBtnEl.addEventListener('click', startGame);
+    restartBtnEl.addEventListener('click', startGame);
+    setAnswerFormVisible(false);
+    setWheelVisible(false);
+    setWheelEnabled(false);
+    setMobileScrollLock(false);
+    resetWheelBuffer();
+    resetPairFrame();
+</script>
+{% endblock %}

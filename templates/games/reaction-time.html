@@ -1,0 +1,783 @@
+{% extends 'base.html' %}
+
+{% block title %}Reaction Targets - Synapy{% endblock %}
+
+{% block head %}
+<style>
+    .rt-wrap {
+        max-width: 820px;
+        margin: 28px auto;
+        padding: 0 14px 24px;
+    }
+
+    .rt-panel {
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        padding: 0;
+    }
+
+    .rt-hud {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr 1fr;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .hud-card {
+        background: rgba(15, 23, 42, 0.58);
+        border: 1px solid rgba(71, 85, 105, 0.45);
+        border-radius: 12px;
+        padding: 10px;
+        min-height: 86px;
+    }
+
+    .hud-label {
+        color: #94a3b8;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 8px;
+    }
+
+    .target-preview {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        justify-content: center;
+        min-height: 54px;
+    }
+
+    .target-preview-item {
+        width: 54px;
+        height: 54px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .target-preview-item .target-svg {
+        width: 100%;
+        height: 100%;
+    }
+
+    .score-num {
+        color: #fbbf24;
+        font-size: 2rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .score-sub {
+        color: #94a3b8;
+        font-size: 0.78rem;
+        margin-top: 4px;
+    }
+
+    .strike-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .strike-mark {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: 1px solid rgba(100, 116, 139, 0.55);
+        color: rgba(148, 163, 184, 0.7);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 1rem;
+        background: rgba(15, 23, 42, 0.6);
+        transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+    }
+
+    .strike-mark.used {
+        border-color: rgba(239, 68, 68, 0.7);
+        color: #fecaca;
+        background: rgba(127, 29, 29, 0.45);
+    }
+
+    .status-line {
+        min-height: 22px;
+        color: #e2e8f0;
+        font-size: 0.92rem;
+        margin-bottom: 10px;
+    }
+
+    .round-timer {
+        margin-bottom: 10px;
+    }
+
+    .timer-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: #94a3b8;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 6px;
+    }
+
+    .timer-bar {
+        height: 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(71, 85, 105, 0.52);
+        background: rgba(15, 23, 42, 0.7);
+        overflow: hidden;
+    }
+
+    .timer-fill {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, #0ea5e9, #22d3ee);
+        transform-origin: left center;
+        transition: width 0.06s linear;
+    }
+
+    .arena {
+        background: radial-gradient(130% 120% at 50% 0%, rgba(30, 41, 59, 0.42), rgba(2, 6, 23, 0.38));
+        border: 1px solid rgba(71, 85, 105, 0.44);
+        border-radius: 14px;
+        padding: 12px;
+        min-height: 300px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+        gap: 12px;
+        align-content: start;
+    }
+
+    .target-btn {
+        width: 100%;
+        aspect-ratio: 1;
+        border: 1px solid rgba(71, 85, 105, 0.55);
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.74);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: transform 0.08s ease, border-color 0.12s ease, background 0.12s ease;
+    }
+
+    .target-btn:hover {
+        border-color: rgba(148, 163, 184, 0.8);
+    }
+
+    .target-btn:active {
+        transform: scale(0.98);
+    }
+
+    .target-btn.correct-hit {
+        border-color: rgba(74, 222, 128, 0.9);
+        background: rgba(20, 83, 45, 0.42);
+    }
+
+    .target-btn.wrong-hit {
+        border-color: rgba(248, 113, 113, 0.9);
+        background: rgba(127, 29, 29, 0.42);
+    }
+
+    .target-btn:disabled {
+        cursor: default;
+    }
+
+    .target-svg {
+        width: 70%;
+        height: 70%;
+        display: block;
+    }
+
+    .controls {
+        margin-top: 12px;
+        text-align: center;
+    }
+
+    .start-btn {
+        min-width: 144px;
+    }
+
+    .game-over {
+        display: none;
+        margin-top: 14px;
+        background: rgba(15, 23, 42, 0.72);
+        border: 1px solid rgba(71, 85, 105, 0.52);
+        border-radius: 14px;
+        padding: 18px;
+        text-align: center;
+    }
+
+    .game-over h2 {
+        color: #f8fafc;
+        margin-bottom: 8px;
+    }
+
+    .final-score {
+        font-size: 2.6rem;
+        font-weight: 800;
+        color: #fbbf24;
+        margin-bottom: 8px;
+    }
+
+    .result-detail {
+        color: #cbd5e1;
+        margin-bottom: 12px;
+        font-size: 0.93rem;
+    }
+
+    #xpGained {
+        color: #4ade80;
+        margin-bottom: 12px;
+        font-weight: 600;
+    }
+
+    .cta-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    @media (max-width: 640px) {
+        .rt-wrap {
+            margin: 12px auto 16px;
+            padding: 0 10px;
+        }
+
+        .rt-hud {
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .hud-card {
+            min-height: 70px;
+        }
+
+        .arena {
+            min-height: 270px;
+            grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+            gap: 10px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rt-wrap">
+    <div class="rt-panel" id="gamePanel">
+        <div class="rt-hud">
+            <div class="hud-card">
+                <div class="hud-label">Target</div>
+                <div class="target-preview" id="targetPreview"></div>
+            </div>
+            <div class="hud-card">
+                <div class="hud-label">Score</div>
+                <div class="score-num" id="scoreNum">0</div>
+                <div class="score-sub" id="roundSub">Round 1</div>
+            </div>
+            <div class="hud-card">
+                <div class="hud-label">Strikes</div>
+                <div class="strike-row" id="strikeRow">
+                    <span class="strike-mark">X</span>
+                    <span class="strike-mark">X</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-line" id="statusLine"></div>
+        <div class="round-timer">
+            <div class="timer-top">
+                <span>Round Time</span>
+                <span id="roundTimeText">5.0s</span>
+            </div>
+            <div class="timer-bar">
+                <div class="timer-fill" id="roundTimerFill"></div>
+            </div>
+        </div>
+        <div class="arena" id="arena"></div>
+
+        <div class="controls">
+            <button class="btn btn-primary start-btn" id="startBtn">Start</button>
+        </div>
+    </div>
+
+    <div class="game-over" id="gameOver">
+        <h2>Game Over</h2>
+        <div class="final-score" id="finalScore">0</div>
+        <p class="result-detail" id="resultDetail"></p>
+
+        {% if not current_user.is_authenticated %}
+        <div class="cta-buttons">
+            <a href="{{ url_for('register') }}" class="btn btn-primary">Create Account</a>
+            <button class="btn btn-secondary" id="restartBtn">Play Again</button>
+        </div>
+        {% else %}
+        <p id="xpGained"></p>
+        <button class="btn btn-primary" id="restartBtn">Play Again</button>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const gamePanelEl = document.getElementById('gamePanel');
+    const gameOverEl = document.getElementById('gameOver');
+    const arenaEl = document.getElementById('arena');
+    const targetPreviewEl = document.getElementById('targetPreview');
+    const scoreNumEl = document.getElementById('scoreNum');
+    const roundSubEl = document.getElementById('roundSub');
+    const statusLineEl = document.getElementById('statusLine');
+    const roundTimeTextEl = document.getElementById('roundTimeText');
+    const roundTimerFillEl = document.getElementById('roundTimerFill');
+    const strikeRowEl = document.getElementById('strikeRow');
+    const strikeMarks = Array.from(strikeRowEl.querySelectorAll('.strike-mark'));
+    const startBtnEl = document.getElementById('startBtn');
+    const restartBtnEl = document.getElementById('restartBtn');
+    const finalScoreEl = document.getElementById('finalScore');
+    const resultDetailEl = document.getElementById('resultDetail');
+    const xpGainedEl = document.getElementById('xpGained');
+
+    const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
+    const globalAudio = window.SynapyAudio || null;
+
+    const GAME_SLUG = 'reaction-time';
+    const MAX_STRIKES = 2;
+    const START_TARGET_COUNT = 3;
+    const MAX_TARGETS_PER_ROUND = 12;
+    const MULTI_HIT_ROUND_THRESHOLD = 4;
+    const MULTI_HIT_REQUIRED_TARGETS = 2;
+    const NEXT_ROUND_DELAY_MS = 260;
+    const BASE_ROUND_TIME_LIMIT_MS = 5000;
+    const ROUND_TIME_REDUCTION_MS = 600;
+    const MIN_ROUND_TIME_LIMIT_MS = 1000;
+    const ROUND_TIMER_TICK_MS = 50;
+
+    const TARGET_COLORS = [
+        { key: 'red', label: 'Red', hex: '#ef4444' },
+        { key: 'orange', label: 'Orange', hex: '#f97316' },
+        { key: 'amber', label: 'Amber', hex: '#f59e0b' },
+        { key: 'yellow', label: 'Yellow', hex: '#eab308' },
+        { key: 'lime', label: 'Lime', hex: '#84cc16' },
+        { key: 'green', label: 'Green', hex: '#22c55e' },
+        { key: 'mint', label: 'Mint', hex: '#34d399' },
+        { key: 'teal', label: 'Teal', hex: '#14b8a6' },
+        { key: 'cyan', label: 'Cyan', hex: '#06b6d4' },
+        { key: 'sky', label: 'Sky', hex: '#0ea5e9' },
+        { key: 'blue', label: 'Blue', hex: '#3b82f6' },
+        { key: 'indigo', label: 'Indigo', hex: '#6366f1' },
+        { key: 'violet', label: 'Violet', hex: '#8b5cf6' },
+        { key: 'magenta', label: 'Magenta', hex: '#d946ef' },
+        { key: 'pink', label: 'Pink', hex: '#ec4899' },
+        { key: 'brown', label: 'Brown', hex: '#b45309' },
+        { key: 'olive', label: 'Olive', hex: '#4d7c0f' },
+        { key: 'slate', label: 'Slate', hex: '#64748b' },
+        { key: 'charcoal', label: 'Charcoal', hex: '#334155' },
+        { key: 'black', label: 'Black', hex: '#111827' },
+    ];
+
+    let isPlaying = false;
+    let awaitingPick = false;
+    let gameEnded = false;
+    let sessionId = null;
+    let score = 0;
+    let round = 1;
+    let strikes = 0;
+    let requiredTargetKeysThisRound = [];
+    let remainingTargetKeysThisRound = [];
+    let shownAtMs = 0;
+    let totalAttempts = 0;
+    let correctAttempts = 0;
+    let responseTimesMs = [];
+    let maxTargetsSeen = 0;
+    let requiredHitsThisRound = 1;
+    let remainingHitsThisRound = 1;
+    let roundTimeoutId = null;
+    let roundDeadlineMs = 0;
+    let currentRoundTimeLimitMs = BASE_ROUND_TIME_LIMIT_MS;
+    let timerTickId = null;
+
+    function nowMs() {
+        if (window.performance && typeof window.performance.now === 'function') {
+            return window.performance.now();
+        }
+        return Date.now();
+    }
+
+    function primeAudioFromGesture() {
+        if (globalAudio && typeof globalAudio.ensureContext === 'function') {
+            globalAudio.ensureContext();
+        }
+    }
+
+    function playSuccessSfx() {
+        if (globalAudio && typeof globalAudio.playSuccess === 'function') {
+            globalAudio.playSuccess();
+        }
+    }
+
+    function playErrorSfx() {
+        if (globalAudio && typeof globalAudio.playError === 'function') {
+            globalAudio.playError();
+        }
+    }
+
+    function buildTargetSvg(hexColor) {
+        return `
+            <svg class="target-svg" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+                <circle cx="50" cy="50" r="46" fill="${hexColor}" />
+                <circle cx="50" cy="50" r="32" fill="#f8fafc" />
+                <circle cx="50" cy="50" r="18" fill="${hexColor}" />
+                <circle cx="50" cy="50" r="7" fill="#f8fafc" />
+            </svg>
+        `;
+    }
+
+    function shuffleArray(values) {
+        const arr = values.slice();
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const temp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = temp;
+        }
+        return arr;
+    }
+
+    function getAverageResponseTimeMs() {
+        if (!responseTimesMs.length) return null;
+        const total = responseTimesMs.reduce((sum, value) => sum + value, 0);
+        return Math.round(total / responseTimesMs.length);
+    }
+
+    function getAccuracy() {
+        if (totalAttempts <= 0) return 0;
+        return correctAttempts / totalAttempts;
+    }
+
+    function updateScoreHud() {
+        scoreNumEl.textContent = String(score);
+        roundSubEl.textContent = `Round ${round}`;
+    }
+
+    function updateStrikesHud() {
+        strikeMarks.forEach((mark, idx) => {
+            mark.classList.toggle('used', idx < strikes);
+        });
+    }
+
+    function setStatus(text) {
+        statusLineEl.textContent = text || '';
+    }
+
+    function clearRoundTimeout() {
+        if (roundTimeoutId) {
+            clearTimeout(roundTimeoutId);
+            roundTimeoutId = null;
+        }
+    }
+
+    function clearTimerTick() {
+        if (timerTickId) {
+            clearInterval(timerTickId);
+            timerTickId = null;
+        }
+    }
+
+    function getRoundTimeLimitMs(roundNumber = round) {
+        const reduced = BASE_ROUND_TIME_LIMIT_MS - ((roundNumber - 1) * ROUND_TIME_REDUCTION_MS);
+        return Math.max(MIN_ROUND_TIME_LIMIT_MS, reduced);
+    }
+
+    function updateRoundTimerVisual() {
+        const currentLimitMs = awaitingPick ? currentRoundTimeLimitMs : getRoundTimeLimitMs();
+        const remainingMs = awaitingPick
+            ? Math.max(0, roundDeadlineMs - nowMs())
+            : currentLimitMs;
+        const ratio = Math.max(0, Math.min(1, remainingMs / currentLimitMs));
+        roundTimerFillEl.style.width = `${ratio * 100}%`;
+        roundTimeTextEl.textContent = `${(remainingMs / 1000).toFixed(1)}s`;
+    }
+
+    function handleRoundTimeout() {
+        if (!isPlaying || !awaitingPick) return;
+
+        awaitingPick = false;
+        roundTimeoutId = null;
+        disableArenaButtons();
+        totalAttempts += 1;
+        responseTimesMs.push(currentRoundTimeLimitMs);
+        strikes += 1;
+        round += 1;
+        updateStrikesHud();
+        updateScoreHud();
+        playErrorSfx();
+        setStatus('Time up');
+        updateRoundTimerVisual();
+
+        if (strikes >= MAX_STRIKES) {
+            endWithDelay(() => endGame('strikes'));
+            return;
+        }
+
+        endWithDelay(renderRound);
+    }
+
+    function chooseRoundPayload() {
+        let targetCount = Math.min(MAX_TARGETS_PER_ROUND, START_TARGET_COUNT + (round - 1));
+        const requiredTargetHits = round >= MULTI_HIT_ROUND_THRESHOLD ? MULTI_HIT_REQUIRED_TARGETS : 1;
+        targetCount = Math.max(requiredTargetHits, targetCount);
+        maxTargetsSeen = Math.max(maxTargetsSeen, targetCount);
+
+        const requiredTargetColors = shuffleArray(TARGET_COLORS).slice(0, requiredTargetHits);
+        const requiredTargetKeys = requiredTargetColors.map((entry) => entry.key);
+        const decoyPool = TARGET_COLORS.filter((entry) => !requiredTargetKeys.includes(entry.key));
+        const decoys = shuffleArray(decoyPool).slice(0, Math.max(0, targetCount - requiredTargetHits));
+        const roundTargets = shuffleArray([
+            ...requiredTargetColors,
+            ...decoys,
+        ]);
+        return { requiredTargetColors, requiredTargetKeys, roundTargets, requiredTargetHits };
+    }
+
+    function renderTargetPreview(targetKeys = []) {
+        const keys = Array.isArray(targetKeys) ? targetKeys : [];
+        const previewEntries = keys
+            .map((key) => TARGET_COLORS.find((entry) => entry.key === key))
+            .filter(Boolean);
+        targetPreviewEl.innerHTML = previewEntries
+            .map((entry) => `<span class="target-preview-item">${buildTargetSvg(entry.hex)}</span>`)
+            .join('');
+    }
+
+    function clearArena() {
+        arenaEl.innerHTML = '';
+    }
+
+    function endWithDelay(callback) {
+        setTimeout(callback, NEXT_ROUND_DELAY_MS);
+    }
+
+    function renderRound() {
+        if (!isPlaying) return;
+        awaitingPick = false;
+        clearRoundTimeout();
+        clearArena();
+
+        const payload = chooseRoundPayload();
+        requiredTargetKeysThisRound = payload.requiredTargetKeys.slice();
+        remainingTargetKeysThisRound = payload.requiredTargetKeys.slice();
+        requiredHitsThisRound = payload.requiredTargetHits;
+        remainingHitsThisRound = remainingTargetKeysThisRound.length;
+        renderTargetPreview(remainingTargetKeysThisRound);
+        updateScoreHud();
+        if (requiredHitsThisRound > 1) {
+            setStatus('Tap both target colors.');
+        } else {
+            setStatus('Tap the matching target.');
+        }
+
+        payload.roundTargets.forEach((entry) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'target-btn';
+            button.dataset.colorKey = entry.key;
+            button.setAttribute('aria-label', entry.label);
+            button.innerHTML = buildTargetSvg(entry.hex);
+            button.addEventListener('click', () => onTargetClick(button));
+            arenaEl.appendChild(button);
+        });
+
+        shownAtMs = nowMs();
+        awaitingPick = true;
+        currentRoundTimeLimitMs = getRoundTimeLimitMs(round);
+        roundDeadlineMs = shownAtMs + currentRoundTimeLimitMs;
+        updateRoundTimerVisual();
+        roundTimeoutId = setTimeout(handleRoundTimeout, currentRoundTimeLimitMs);
+    }
+
+    function disableArenaButtons() {
+        const buttons = arenaEl.querySelectorAll('.target-btn');
+        buttons.forEach((button) => {
+            button.disabled = true;
+        });
+    }
+
+    function onTargetClick(button) {
+        if (!isPlaying || !awaitingPick) return;
+        totalAttempts += 1;
+        responseTimesMs.push(Math.max(0, nowMs() - shownAtMs));
+
+        const pickedKey = button.dataset.colorKey;
+        const correctKeyIndex = remainingTargetKeysThisRound.indexOf(pickedKey);
+        const isCorrect = correctKeyIndex !== -1;
+
+        if (isCorrect) {
+            correctAttempts += 1;
+            button.classList.add('correct-hit');
+            button.disabled = true;
+            playSuccessSfx();
+            remainingTargetKeysThisRound.splice(correctKeyIndex, 1);
+            remainingHitsThisRound = remainingTargetKeysThisRound.length;
+            if (remainingHitsThisRound > 0) {
+                const landed = requiredHitsThisRound - remainingHitsThisRound;
+                renderTargetPreview(remainingTargetKeysThisRound);
+                setStatus(`Hit ${landed}/${requiredHitsThisRound}`);
+                return;
+            }
+
+            awaitingPick = false;
+            clearRoundTimeout();
+            disableArenaButtons();
+            round += 1;
+            score += 1;
+            setStatus('Hit');
+            updateRoundTimerVisual();
+            endWithDelay(renderRound);
+            return;
+        }
+
+        awaitingPick = false;
+        clearRoundTimeout();
+        disableArenaButtons();
+        round += 1;
+        strikes += 1;
+        updateStrikesHud();
+        button.classList.add('wrong-hit');
+        playErrorSfx();
+        setStatus('Miss');
+        updateRoundTimerVisual();
+
+        if (strikes >= MAX_STRIKES) {
+            endWithDelay(() => endGame('strikes'));
+            return;
+        }
+
+        endWithDelay(renderRound);
+    }
+
+    async function startSession() {
+        if (!isAuthenticated) return null;
+        try {
+            const res = await fetch('/api/session/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ game_slug: GAME_SLUG, difficulty: 1 }),
+            });
+            const data = await res.json();
+            return data.session_id || null;
+        } catch (err) {
+            return null;
+        }
+    }
+
+    async function endSession(reason) {
+        if (!isAuthenticated || !sessionId) return;
+        try {
+            const res = await fetch(`/api/session/${sessionId}/end`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    score: score,
+                    accuracy: getAccuracy(),
+                    rounds_completed: score,
+                    avg_response_time_ms: getAverageResponseTimeMs(),
+                    raw_data: {
+                        rounds_presented: Math.max(0, round - 1),
+                        strikes_used: strikes,
+                        strike_limit: MAX_STRIKES,
+                        round_time_limit_ms: BASE_ROUND_TIME_LIMIT_MS,
+                        round_time_reduction_ms: ROUND_TIME_REDUCTION_MS,
+                        round_time_min_ms: MIN_ROUND_TIME_LIMIT_MS,
+                        max_targets_seen: maxTargetsSeen,
+                        target_pool_size: TARGET_COLORS.length,
+                        end_reason: reason,
+                        response_samples: responseTimesMs.length,
+                    },
+                }),
+            });
+            const data = await res.json();
+            if (xpGainedEl) {
+                xpGainedEl.textContent = `+${data.xp_earned} XP`;
+            }
+        } catch (err) {
+            if (xpGainedEl) {
+                xpGainedEl.textContent = '';
+            }
+        }
+    }
+
+    async function startGame() {
+        primeAudioFromGesture();
+        isPlaying = true;
+        awaitingPick = false;
+        gameEnded = false;
+        sessionId = await startSession();
+        score = 0;
+        round = 1;
+        strikes = 0;
+        totalAttempts = 0;
+        correctAttempts = 0;
+        responseTimesMs = [];
+        maxTargetsSeen = 0;
+        requiredHitsThisRound = 1;
+        remainingHitsThisRound = 1;
+        requiredTargetKeysThisRound = [];
+        remainingTargetKeysThisRound = [];
+        shownAtMs = 0;
+        roundDeadlineMs = 0;
+        currentRoundTimeLimitMs = BASE_ROUND_TIME_LIMIT_MS;
+        clearRoundTimeout();
+        clearTimerTick();
+
+        if (xpGainedEl) xpGainedEl.textContent = '';
+        resultDetailEl.textContent = '';
+        updateScoreHud();
+        updateStrikesHud();
+        setStatus('');
+        clearArena();
+        targetPreviewEl.innerHTML = '';
+
+        gameOverEl.style.display = 'none';
+        gamePanelEl.style.display = 'block';
+        startBtnEl.style.display = 'none';
+        timerTickId = setInterval(updateRoundTimerVisual, ROUND_TIMER_TICK_MS);
+        updateRoundTimerVisual();
+
+        renderRound();
+    }
+
+    async function endGame(reason) {
+        if (gameEnded) return;
+        gameEnded = true;
+        isPlaying = false;
+        awaitingPick = false;
+        clearRoundTimeout();
+        clearTimerTick();
+        roundDeadlineMs = 0;
+        disableArenaButtons();
+
+        finalScoreEl.textContent = String(score);
+        resultDetailEl.textContent = `Rounds ${Math.max(0, round - 1)} | Accuracy ${(getAccuracy() * 100).toFixed(0)}%`;
+        gamePanelEl.style.display = 'none';
+        gameOverEl.style.display = 'block';
+
+        await endSession(reason);
+    }
+
+    startBtnEl.addEventListener('click', startGame);
+    if (restartBtnEl) {
+        restartBtnEl.addEventListener('click', startGame);
+    }
+
+    updateScoreHud();
+    updateStrikesHud();
+    setStatus('');
+</script>
+{% endblock %}

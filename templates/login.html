@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ mode }} - Synapy{% endblock %}
+
+{% block head %}
+<style>
+    .auth-container {
+        max-width: 400px;
+        margin: 80px auto;
+        padding: 40px;
+        background: #1a1a2e;
+        border-radius: 16px;
+    }
+    .auth-container h2 {
+        text-align: center;
+        margin-bottom: 30px;
+        color: #fff;
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: #a0a0a0;
+    }
+    .form-group input {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid #2a2a4a;
+        border-radius: 8px;
+        background: #0f0f1a;
+        color: #fff;
+        font-size: 1rem;
+    }
+    .form-group input:focus {
+        outline: none;
+        border-color: #8B5CF6;
+    }
+    .auth-container .btn {
+        width: 100%;
+        padding: 14px;
+        font-size: 1.1rem;
+    }
+    .auth-switch {
+        text-align: center;
+        margin-top: 20px;
+        color: #888;
+    }
+    .auth-switch a {
+        color: #8B5CF6;
+        text-decoration: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <h2>{{ mode }}</h2>
+    <form method="POST">
+        <div class="form-group">
+            <label>Username{% if mode == 'Login' %} or Email{% endif %}</label>
+            <input type="text" name="username" required>
+        </div>
+        {% if mode == 'Register' %}
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" name="email" required>
+        </div>
+        {% endif %}
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" name="password" required>
+        </div>
+        <button type="submit" class="btn btn-primary">{{ mode }}</button>
+    </form>
+    <div class="auth-switch">
+        {% if mode == 'Login' %}
+            Don't have an account? <a href="{{ url_for('register') }}">Register</a>
+        {% else %}
+            Already have an account? <a href="{{ url_for('login') }}">Login</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

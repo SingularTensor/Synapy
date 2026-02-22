@@ -1,0 +1,814 @@
+{% extends 'base.html' %}
+
+{% block title %}Color Word - Synapy{% endblock %}
+
+{% block head %}
+<style>
+    .color-word-container {
+        max-width: 760px;
+        margin: 28px auto;
+        padding: 0 16px 24px;
+    }
+
+    .color-word-panel {
+        background: linear-gradient(180deg, rgba(14, 19, 30, 0.96), rgba(10, 14, 24, 0.96));
+        border: 1px solid rgba(71, 85, 105, 0.5);
+        border-radius: 16px;
+        padding: 20px 18px;
+    }
+
+    .status-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+    }
+
+    .status-text {
+        min-height: 20px;
+        color: #e2e8f0;
+        font-size: 0.95rem;
+    }
+
+    .score-pill {
+        color: #fde68a;
+        background: rgba(245, 158, 11, 0.14);
+        border: 1px solid rgba(245, 158, 11, 0.38);
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 0.86rem;
+        font-weight: 700;
+    }
+
+    .rule-cue {
+        margin-bottom: 12px;
+        color: #ffedd5;
+        background: rgba(249, 115, 22, 0.14);
+        border: 1px solid rgba(249, 115, 22, 0.38);
+        border-radius: 10px;
+        font-size: 0.88rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        text-align: center;
+        padding: 7px 10px;
+        display: none;
+    }
+
+    .rule-cue.word-mode {
+        color: #dbeafe;
+        background: rgba(59, 130, 246, 0.16);
+        border-color: rgba(96, 165, 250, 0.45);
+    }
+
+    .timer-wrap {
+        margin-bottom: 18px;
+    }
+
+    .timer-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 7px;
+        color: #94a3b8;
+        font-size: 0.8rem;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+    }
+
+    .timer-bar {
+        height: 9px;
+        background: rgba(30, 41, 59, 0.92);
+        border: 1px solid rgba(71, 85, 105, 0.5);
+        border-radius: 999px;
+        overflow: hidden;
+    }
+
+    .timer-fill {
+        height: 100%;
+        width: 100%;
+        background: linear-gradient(90deg, #f59e0b, #f97316);
+        transform-origin: left center;
+        transition: width 0.08s linear;
+    }
+
+    .stimulus-wrap {
+        min-height: 164px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        border: 1px solid rgba(71, 85, 105, 0.46);
+        border-radius: 14px;
+        background: radial-gradient(95% 120% at 50% 0%, rgba(51, 65, 85, 0.24), rgba(15, 23, 42, 0.42));
+        margin-bottom: 16px;
+        user-select: none;
+    }
+
+    .stimulus-word {
+        font-size: clamp(2.1rem, 9vw, 3.8rem);
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        transition: transform 0.12s ease;
+    }
+
+    .stimulus-word.sentence-mode {
+        font-size: clamp(1.25rem, 5.2vw, 2rem);
+        letter-spacing: 0.01em;
+        text-transform: none;
+        line-height: 1.24;
+        padding: 0 12px;
+    }
+
+    .stimulus-prefix {
+        color: #f8fafc;
+    }
+
+    .stimulus-color-token {
+        font-weight: 800;
+        text-shadow: 0 0 14px rgba(255, 255, 255, 0.06);
+    }
+
+    .stimulus-word.hit {
+        transform: scale(1.06);
+    }
+
+    .answers-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .answer-btn {
+        border-radius: 10px;
+        border: 1px solid transparent;
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        padding: 12px 10px;
+        cursor: pointer;
+        transition: transform 0.08s ease, filter 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+        color: #0f172a;
+    }
+
+    .answer-btn:active {
+        transform: scale(0.98);
+    }
+
+    .answer-btn:disabled {
+        cursor: default;
+        filter: saturate(0.6) brightness(0.65);
+        box-shadow: none;
+        transform: none;
+    }
+
+    .answer-btn.red {
+        background: #ef4444;
+    }
+
+    .answer-btn.blue {
+        background: #3b82f6;
+    }
+
+    .answer-btn.green {
+        background: #22c55e;
+    }
+
+    .answer-btn.yellow {
+        background: #facc15;
+    }
+
+    .answer-btn.correct-flash {
+        border-color: rgba(255, 255, 255, 0.94);
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2), 0 0 18px rgba(59, 130, 246, 0.22);
+    }
+
+    .controls {
+        display: flex;
+        justify-content: center;
+    }
+
+    .start-btn {
+        min-width: 150px;
+    }
+
+    .game-over {
+        margin-top: 16px;
+        display: none;
+        background: rgba(15, 23, 42, 0.72);
+        border: 1px solid rgba(71, 85, 105, 0.5);
+        border-radius: 14px;
+        padding: 18px;
+        text-align: center;
+    }
+
+    .game-over h2 {
+        color: #f8fafc;
+        margin-bottom: 6px;
+    }
+
+    .final-score {
+        font-size: 2.7rem;
+        font-weight: 800;
+        color: #fbbf24;
+        margin-bottom: 8px;
+    }
+
+    .result-detail {
+        color: #cbd5e1;
+        margin-bottom: 10px;
+        font-size: 0.93rem;
+    }
+
+    #xpGained {
+        color: #4ade80;
+        margin-bottom: 10px;
+        font-weight: 600;
+    }
+
+    .cta-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    @media (max-width: 560px) {
+        .color-word-container {
+            margin: 12px auto 16px;
+            padding: 0 10px;
+        }
+
+        .color-word-panel {
+            padding: 14px 12px;
+        }
+
+        .status-row {
+            gap: 8px;
+        }
+
+        .score-pill {
+            font-size: 0.8rem;
+            padding: 5px 8px;
+        }
+
+        .stimulus-wrap {
+            min-height: 138px;
+        }
+
+        .answers-grid {
+            gap: 8px;
+        }
+
+        .answer-btn {
+            padding: 11px 8px;
+            font-size: 0.94rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="color-word-container">
+    <div class="color-word-panel" id="gamePanel">
+        <div class="status-row">
+            <div class="status-text" id="statusText"></div>
+            <div class="score-pill" id="scorePill">Score 0</div>
+        </div>
+        <div class="rule-cue" id="ruleCue">🎨 Ink Color</div>
+
+        <div class="timer-wrap">
+            <div class="timer-top">
+                <span>Round Time</span>
+                <span id="timeLeft">2.0s</span>
+            </div>
+            <div class="timer-bar">
+                <div class="timer-fill" id="timerFill"></div>
+            </div>
+        </div>
+
+        <div class="stimulus-wrap">
+            <div class="stimulus-word" id="stimulusWord">Ready</div>
+        </div>
+
+        <div class="answers-grid" id="answersGrid">
+            <button class="answer-btn red" data-color="red" disabled>Red</button>
+            <button class="answer-btn blue" data-color="blue" disabled>Blue</button>
+            <button class="answer-btn green" data-color="green" disabled>Green</button>
+            <button class="answer-btn yellow" data-color="yellow" disabled>Yellow</button>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary start-btn" id="startBtn">Start</button>
+        </div>
+    </div>
+
+    <div class="game-over" id="gameOver">
+        <h2>Game Over</h2>
+        <div class="final-score" id="finalScore">0</div>
+        <p class="result-detail" id="resultDetail"></p>
+
+        {% if not current_user.is_authenticated %}
+        <div class="cta-buttons">
+            <a href="{{ url_for('register') }}" class="btn btn-primary">Create Account</a>
+            <button class="btn btn-secondary" id="restartBtn">Play Again</button>
+        </div>
+        {% else %}
+        <p id="xpGained"></p>
+        <button class="btn btn-primary" id="restartBtn">Play Again</button>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const startBtnEl = document.getElementById('startBtn');
+    const restartBtnEl = document.getElementById('restartBtn');
+    const stimulusWordEl = document.getElementById('stimulusWord');
+    const statusTextEl = document.getElementById('statusText');
+    const scorePillEl = document.getElementById('scorePill');
+    const ruleCueEl = document.getElementById('ruleCue');
+    const timeLeftEl = document.getElementById('timeLeft');
+    const timerFillEl = document.getElementById('timerFill');
+    const gamePanelEl = document.getElementById('gamePanel');
+    const gameOverEl = document.getElementById('gameOver');
+    const finalScoreEl = document.getElementById('finalScore');
+    const resultDetailEl = document.getElementById('resultDetail');
+    const xpGainedEl = document.getElementById('xpGained');
+    const answerButtons = Array.from(document.querySelectorAll('.answer-btn'));
+
+    const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
+    const globalAudio = window.SynapyAudio || null;
+
+    const GAME_SLUG = 'color-word';
+    const GAME_DURATION_MS = 45000;
+    const ROUND_TIME_START_MS = 2000;
+    const ROUND_TIME_DECLINE_MS = 150;
+    const ROUND_TIME_MIN_MS = 650;
+    const INCONGRUENT_RATIO = 1.0;
+    const WORD_RULE_PROBABILITY = 0.5;
+    const SENTENCE_MODE_START_SCORE = 4;
+
+    const COLORS = [
+        { key: 'red', label: 'RED', hex: '#ef4444', keys: ['1', 'r'] },
+        { key: 'blue', label: 'BLUE', hex: '#3b82f6', keys: ['2', 'b'] },
+        { key: 'green', label: 'GREEN', hex: '#22c55e', keys: ['3', 'g'] },
+        { key: 'yellow', label: 'YELLOW', hex: '#facc15', keys: ['4', 'y'] },
+    ];
+    const COLOR_SENTENCE_BY_KEY = {
+        red: [
+            "Mario's hat is RED",
+            "Sonic's shoes are RED",
+            "Kratos' mark is RED",
+            "Mickey's shorts are RED",
+            "Pooh's shirt is RED",
+        ],
+        blue: [
+            "Sonic's spikes are BLUE",
+            "Mega Man's armor is BLUE",
+            "Dory's body is BLUE",
+            "Genie's skin is BLUE",
+            "Elsa's dress is BLUE",
+        ],
+        green: [
+            "Link's tunic is GREEN",
+            "Luigi's cap is GREEN",
+            "Yoshi's skin is GREEN",
+            "Peter Pan's outfit is GREEN",
+            "Tiana's dress is GREEN",
+        ],
+        yellow: [
+            "Pikachu's fur is YELLOW",
+            "Pac-Man's body is YELLOW",
+            "The Super Star is YELLOW",
+            "Belle's gown is YELLOW",
+            "Pluto's fur is YELLOW",
+        ],
+    };
+    const COLOR_BY_KEY = Object.fromEntries(COLORS.map((entry) => [entry.key, entry]));
+    const KEY_TO_COLOR = COLORS.reduce((map, entry) => {
+        entry.keys.forEach((key) => {
+            map[key] = entry.key;
+        });
+        return map;
+    }, {});
+
+    let sessionId = null;
+    let score = 0;
+    let totalAttempts = 0;
+    let correctAttempts = 0;
+    let timeoutAttempts = 0;
+    let congruentTrials = 0;
+    let incongruentTrials = 0;
+    let inkRuleTrials = 0;
+    let wordRuleTrials = 0;
+    let sentenceModeRounds = 0;
+    let responseTimesMs = [];
+    let isPlaying = false;
+    let gameEnded = false;
+    let awaitingAnswer = false;
+    let currentStimulus = null;
+    let currentRule = 'ink';
+    let currentShownAtMs = 0;
+    let currentRoundTimeLimitMs = ROUND_TIME_START_MS;
+    let roundDeadlineMs = 0;
+    let roundTimeoutId = null;
+    let gameDeadlineMs = 0;
+    let timerIntervalId = null;
+
+    function nowMs() {
+        if (window.performance && typeof window.performance.now === 'function') {
+            return window.performance.now();
+        }
+        return Date.now();
+    }
+
+    function primeAudioFromGesture() {
+        if (globalAudio && typeof globalAudio.ensureContext === 'function') {
+            globalAudio.ensureContext();
+        }
+    }
+
+    function playSuccessSfx() {
+        if (globalAudio && typeof globalAudio.playSuccess === 'function') {
+            globalAudio.playSuccess();
+        }
+    }
+
+    function playErrorSfx() {
+        if (globalAudio && typeof globalAudio.playError === 'function') {
+            globalAudio.playError();
+        }
+    }
+
+    function randomColorKeyExcept(excludedKey) {
+        const pool = COLORS.filter((entry) => entry.key !== excludedKey);
+        return pool[Math.floor(Math.random() * pool.length)].key;
+    }
+
+    function clearRoundTimeout() {
+        if (roundTimeoutId) {
+            clearTimeout(roundTimeoutId);
+            roundTimeoutId = null;
+        }
+    }
+
+    function clearTimerInterval() {
+        if (timerIntervalId) {
+            clearInterval(timerIntervalId);
+            timerIntervalId = null;
+        }
+    }
+
+    function setButtonsEnabled(enabled) {
+        answerButtons.forEach((button) => {
+            button.disabled = !enabled;
+        });
+    }
+
+    function updateScorePill() {
+        scorePillEl.textContent = `Score ${score}`;
+    }
+
+    function updateRuleCue() {
+        if (!ruleCueEl) return;
+        const isWordRule = currentRule === 'word';
+        ruleCueEl.textContent = isWordRule ? '🔤 Word Color' : '🎨 Ink Color';
+        ruleCueEl.classList.toggle('word-mode', isWordRule);
+        ruleCueEl.style.display = isPlaying ? 'block' : 'none';
+    }
+
+    function chooseRule() {
+        return Math.random() < WORD_RULE_PROBABILITY ? 'word' : 'ink';
+    }
+
+    function getCurrentRoundTimeLimitMs() {
+        const computed = ROUND_TIME_START_MS - (score * ROUND_TIME_DECLINE_MS);
+        return Math.max(ROUND_TIME_MIN_MS, computed);
+    }
+
+    function escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function shouldUseSentenceMode() {
+        // "Past level 4" starts once score reaches 4 and the next round begins.
+        return score >= SENTENCE_MODE_START_SCORE;
+    }
+
+    function pickSentenceForColor(colorKey) {
+        const pool = COLOR_SENTENCE_BY_KEY[colorKey];
+        if (!Array.isArray(pool) || !pool.length) {
+            return COLOR_BY_KEY[colorKey].label;
+        }
+        return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    function updateTimerVisual() {
+        const now = nowMs();
+        const displayWindowMs = Math.max(ROUND_TIME_MIN_MS, currentRoundTimeLimitMs || ROUND_TIME_START_MS);
+        const roundRemaining = awaitingAnswer
+            ? Math.max(0, roundDeadlineMs - now)
+            : displayWindowMs;
+        const ratio = Math.max(0, Math.min(1, roundRemaining / displayWindowMs));
+        timerFillEl.style.width = `${ratio * 100}%`;
+        timeLeftEl.textContent = `${(roundRemaining / 1000).toFixed(1)}s`;
+
+        if (now >= gameDeadlineMs && isPlaying) {
+            endGame('timer');
+        }
+    }
+
+    function animateStimulusHit() {
+        stimulusWordEl.classList.remove('hit');
+        void stimulusWordEl.offsetWidth;
+        stimulusWordEl.classList.add('hit');
+        setTimeout(() => stimulusWordEl.classList.remove('hit'), 120);
+    }
+
+    function renderStimulus(stimulus) {
+        const ink = COLOR_BY_KEY[stimulus.inkKey];
+        const colorWord = COLOR_BY_KEY[stimulus.wordKey].label;
+        const fullText = stimulus.displayText || colorWord;
+        const colorWordIndex = fullText.lastIndexOf(colorWord);
+
+        if (colorWordIndex >= 0) {
+            const prefixText = fullText.slice(0, colorWordIndex);
+            const suffixText = fullText.slice(colorWordIndex + colorWord.length);
+            stimulusWordEl.innerHTML =
+                `<span class="stimulus-prefix">${escapeHtml(prefixText)}</span>` +
+                `<span class="stimulus-color-token" style="color:${ink.hex}">${escapeHtml(colorWord)}</span>` +
+                `<span class="stimulus-prefix">${escapeHtml(suffixText)}</span>`;
+        } else {
+            stimulusWordEl.innerHTML = `<span class="stimulus-color-token" style="color:${ink.hex}">${escapeHtml(fullText)}</span>`;
+        }
+        stimulusWordEl.classList.toggle('sentence-mode', Boolean(stimulus.isSentenceMode));
+    }
+
+    function nextStimulus() {
+        if (!isPlaying) return;
+        if (nowMs() >= gameDeadlineMs) {
+            endGame('timer');
+            return;
+        }
+
+        clearRoundTimeout();
+        awaitingAnswer = true;
+
+        const inkKey = COLORS[Math.floor(Math.random() * COLORS.length)].key;
+        const useIncongruent = Math.random() < INCONGRUENT_RATIO;
+        const wordKey = useIncongruent ? randomColorKeyExcept(inkKey) : inkKey;
+        if (wordKey === inkKey) {
+            congruentTrials += 1;
+        } else {
+            incongruentTrials += 1;
+        }
+
+        currentRule = chooseRule();
+        if (currentRule === 'word') {
+            wordRuleTrials += 1;
+        } else {
+            inkRuleTrials += 1;
+        }
+        updateRuleCue();
+        statusTextEl.textContent = '';
+
+        const isSentenceMode = shouldUseSentenceMode();
+        if (isSentenceMode) {
+            sentenceModeRounds += 1;
+        }
+        currentStimulus = {
+            wordKey,
+            inkKey,
+            displayText: isSentenceMode ? pickSentenceForColor(wordKey) : COLOR_BY_KEY[wordKey].label,
+            isSentenceMode,
+        };
+        currentShownAtMs = nowMs();
+        currentRoundTimeLimitMs = getCurrentRoundTimeLimitMs();
+        roundDeadlineMs = currentShownAtMs + currentRoundTimeLimitMs;
+        renderStimulus(currentStimulus);
+        setButtonsEnabled(true);
+
+        roundTimeoutId = setTimeout(() => {
+            if (!isPlaying || !awaitingAnswer) return;
+            totalAttempts += 1;
+            timeoutAttempts += 1;
+            playErrorSfx();
+            endGame('timeout');
+        }, currentRoundTimeLimitMs);
+    }
+
+    function evaluateAnswer(selectedColorKey) {
+        if (!isPlaying || !awaitingAnswer || !currentStimulus) return;
+
+        const expectedColorKey = currentRule === 'word' ? currentStimulus.wordKey : currentStimulus.inkKey;
+        const isCorrect = selectedColorKey === expectedColorKey;
+        const reactionMs = Math.max(0, nowMs() - currentShownAtMs);
+        totalAttempts += 1;
+        awaitingAnswer = false;
+        clearRoundTimeout();
+        roundDeadlineMs = 0;
+
+        if (isCorrect) {
+            score += 1;
+            correctAttempts += 1;
+            responseTimesMs.push(reactionMs);
+            updateScorePill();
+            animateStimulusHit();
+            playSuccessSfx();
+            statusTextEl.textContent = 'Correct';
+
+            const button = answerButtons.find((entry) => entry.dataset.color === selectedColorKey);
+            if (button) {
+                button.classList.add('correct-flash');
+                setTimeout(() => button.classList.remove('correct-flash'), 120);
+            }
+            setTimeout(nextStimulus, 85);
+            return;
+        }
+
+        playErrorSfx();
+        const expectedLabel = COLOR_BY_KEY[expectedColorKey] ? COLOR_BY_KEY[expectedColorKey].label : '';
+        statusTextEl.textContent = expectedLabel ? `Wrong (${expectedLabel})` : 'Wrong color';
+        endGame('wrong');
+    }
+
+    function getAverageResponseTimeMs() {
+        if (!responseTimesMs.length) return null;
+        const total = responseTimesMs.reduce((sum, value) => sum + value, 0);
+        return Math.round(total / responseTimesMs.length);
+    }
+
+    function getAccuracy() {
+        if (totalAttempts <= 0) return 0;
+        return correctAttempts / totalAttempts;
+    }
+
+    async function startSession() {
+        if (!isAuthenticated) return null;
+        try {
+            const res = await fetch('/api/session/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ game_slug: GAME_SLUG, difficulty: 1 }),
+            });
+            const data = await res.json();
+            return data.session_id || null;
+        } catch (err) {
+            return null;
+        }
+    }
+
+    async function endSession(endReason) {
+        if (!isAuthenticated || !sessionId) return;
+        try {
+            const res = await fetch(`/api/session/${sessionId}/end`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    score: score,
+                    accuracy: getAccuracy(),
+                    rounds_completed: score,
+                    avg_response_time_ms: getAverageResponseTimeMs(),
+                    raw_data: {
+                        total_attempts: totalAttempts,
+                        correct_attempts: correctAttempts,
+                        timeout_attempts: timeoutAttempts,
+                        congruent_trials: congruentTrials,
+                        incongruent_trials: incongruentTrials,
+                        ink_rule_trials: inkRuleTrials,
+                        word_rule_trials: wordRuleTrials,
+                        rule_mix: '50_50',
+                        sentence_mode_start_score: SENTENCE_MODE_START_SCORE,
+                        sentence_mode_rounds: sentenceModeRounds,
+                        round_time_start_ms: ROUND_TIME_START_MS,
+                        round_time_decline_ms: ROUND_TIME_DECLINE_MS,
+                        round_time_min_ms: ROUND_TIME_MIN_MS,
+                        round_time_limit_ms: currentRoundTimeLimitMs,
+                        game_duration_ms: GAME_DURATION_MS,
+                        end_reason: endReason,
+                        response_samples: responseTimesMs.length,
+                    },
+                }),
+            });
+            const data = await res.json();
+            if (xpGainedEl) {
+                xpGainedEl.textContent = `+${data.xp_earned} XP`;
+            }
+        } catch (err) {
+            if (xpGainedEl) {
+                xpGainedEl.textContent = '';
+            }
+        }
+    }
+
+    async function startGame() {
+        primeAudioFromGesture();
+        clearRoundTimeout();
+        clearTimerInterval();
+        setButtonsEnabled(false);
+
+        score = 0;
+        totalAttempts = 0;
+        correctAttempts = 0;
+        timeoutAttempts = 0;
+        congruentTrials = 0;
+        incongruentTrials = 0;
+        inkRuleTrials = 0;
+        wordRuleTrials = 0;
+        sentenceModeRounds = 0;
+        responseTimesMs = [];
+        isPlaying = true;
+        gameEnded = false;
+        awaitingAnswer = false;
+        currentStimulus = null;
+        currentRule = 'ink';
+        currentShownAtMs = 0;
+        currentRoundTimeLimitMs = ROUND_TIME_START_MS;
+        roundDeadlineMs = 0;
+        sessionId = await startSession();
+        gameDeadlineMs = nowMs() + GAME_DURATION_MS;
+
+        statusTextEl.textContent = '';
+        updateRuleCue();
+        updateScorePill();
+        timeLeftEl.textContent = `${(ROUND_TIME_START_MS / 1000).toFixed(1)}s`;
+        timerFillEl.style.width = '100%';
+        stimulusWordEl.textContent = 'Go';
+        stimulusWordEl.style.color = '#e2e8f0';
+        resultDetailEl.textContent = '';
+        if (xpGainedEl) xpGainedEl.textContent = '';
+
+        gameOverEl.style.display = 'none';
+        gamePanelEl.style.display = 'block';
+        startBtnEl.style.display = 'none';
+
+        timerIntervalId = setInterval(updateTimerVisual, 80);
+        updateTimerVisual();
+        nextStimulus();
+    }
+
+    async function endGame(reason) {
+        if (gameEnded) return;
+        gameEnded = true;
+        isPlaying = false;
+        awaitingAnswer = false;
+        clearRoundTimeout();
+        clearTimerInterval();
+        roundDeadlineMs = 0;
+        setButtonsEnabled(false);
+
+        finalScoreEl.textContent = String(score);
+        if (reason === 'timer') {
+            resultDetailEl.textContent = `Time complete | Accuracy ${(getAccuracy() * 100).toFixed(0)}%`;
+        } else if (reason === 'timeout') {
+            resultDetailEl.textContent = `Too slow | Accuracy ${(getAccuracy() * 100).toFixed(0)}%`;
+        } else {
+            resultDetailEl.textContent = `Wrong input | Accuracy ${(getAccuracy() * 100).toFixed(0)}%`;
+        }
+
+        statusTextEl.textContent = '';
+        if (ruleCueEl) {
+            ruleCueEl.style.display = 'none';
+        }
+        gamePanelEl.style.display = 'none';
+        gameOverEl.style.display = 'block';
+
+        await endSession(reason);
+    }
+
+    function handleAnswerButtonClick(event) {
+        const colorKey = event.currentTarget.dataset.color;
+        evaluateAnswer(colorKey);
+    }
+
+    function handleKeydown(event) {
+        if (!isPlaying || !awaitingAnswer) return;
+        const mapped = KEY_TO_COLOR[(event.key || '').toLowerCase()];
+        if (!mapped) return;
+        event.preventDefault();
+        evaluateAnswer(mapped);
+    }
+
+    answerButtons.forEach((button) => button.addEventListener('click', handleAnswerButtonClick));
+    startBtnEl.addEventListener('click', startGame);
+    if (restartBtnEl) {
+        restartBtnEl.addEventListener('click', startGame);
+    }
+    document.addEventListener('keydown', handleKeydown);
+    window.addEventListener('beforeunload', () => {
+        clearRoundTimeout();
+        clearTimerInterval();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin - Synapy{% endblock %}
+
+{% block head %}
+<style>
+    .admin {
+        padding: 40px 20px;
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+    .admin h1 {
+        margin-bottom: 30px;
+    }
+    .section {
+        background: #1a1a2e;
+        border-radius: 16px;
+        padding: 25px;
+        margin-bottom: 30px;
+    }
+    .section h2 {
+        margin-bottom: 20px;
+        font-size: 1.2rem;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    th, td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #2a2a4a;
+    }
+    th {
+        color: #888;
+        font-weight: normal;
+    }
+    tr:last-child td {
+        border-bottom: none;
+    }
+    .badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+    .badge-admin {
+        background: #8B5CF620;
+        color: #8B5CF6;
+    }
+    .badge-recruiter {
+        background: #3B82F620;
+        color: #3B82F6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin">
+    <h1>Admin Panel</h1>
+
+    <div class="section">
+        <h2>Users ({{ users | length }})</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>XP</th>
+                    <th>Role</th>
+                    <th>Joined</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.total_xp }}</td>
+                    <td>
+                        {% if user.is_admin %}<span class="badge badge-admin">Admin</span>{% endif %}
+                        {% if user.is_recruiter %}<span class="badge badge-recruiter">Recruiter</span>{% endif %}
+                    </td>
+                    <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '--' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>Game Types ({{ game_types | length }})</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Slug</th>
+                    <th>Domain</th>
+                    <th>Active</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for game in game_types %}
+                <tr>
+                    <td>{{ game.name }}</td>
+                    <td>{{ game.slug }}</td>
+                    <td>{{ game.cognitive_domain }}</td>
+                    <td>{{ 'Yes' if game.is_active else 'No' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

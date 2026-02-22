@@ -1,0 +1,849 @@
+{% extends 'base.html' %}
+
+{% block title %}Sequence Memory - Synapy{% endblock %}
+
+{% block head %}
+<style>
+    @keyframes panel-enter {
+        from {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes start-breathe {
+        0% {
+            box-shadow: 0 10px 22px rgba(224, 74, 255, 0.32);
+            background-position: 0% 50%;
+        }
+
+        50% {
+            box-shadow: 0 14px 30px rgba(224, 74, 255, 0.5);
+            background-position: 100% 50%;
+        }
+
+        100% {
+            box-shadow: 0 10px 22px rgba(224, 74, 255, 0.32);
+            background-position: 0% 50%;
+        }
+    }
+
+    @keyframes start-sheen {
+        0% {
+            transform: translateX(-140%);
+        }
+
+        45%,
+        100% {
+            transform: translateX(180%);
+        }
+    }
+
+    @keyframes grid-spin-slow {
+        from {
+            transform: rotate(0deg);
+        }
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @keyframes tile-progress-fall {
+        0% {
+            opacity: 0;
+            transform: translate(-50%, -8px) scale(0.8);
+        }
+
+        18% {
+            opacity: 1;
+            transform: translate(-50%, -18px) scale(1.16);
+        }
+
+        62% {
+            opacity: 1;
+            transform: translate(-50%, -6px) scale(1.05);
+        }
+
+        100% {
+            opacity: 0;
+            transform: translate(-50%, 26px) scale(0.9);
+        }
+    }
+
+    .game-container {
+        --text-muted: #98a2b8;
+        --text-strong: #fef3e2;
+        --accent: #f59e0b;
+        --accent-strong: #f97316;
+        --accent-soft: #fed7aa;
+        --surface-deep: #0f1623;
+        --surface: #171f2f;
+        --surface-elev: #1f293a;
+        --line-soft: rgba(148, 163, 184, 0.24);
+        padding: clamp(28px, 5vw, 44px) 20px;
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        box-sizing: border-box;
+        text-align: center;
+        background:
+            radial-gradient(120% 90% at 12% 4%, rgba(224, 74, 255, 0.04), transparent 56%),
+            radial-gradient(120% 90% at 88% 96%, rgba(99, 102, 241, 0.03), transparent 58%),
+            linear-gradient(180deg, rgba(17, 24, 39, 0.24), rgba(15, 23, 42, 0.14));
+        border-radius: 0;
+        position: relative;
+        overflow: hidden;
+        animation: panel-enter 0.25s ease-out;
+    }
+
+    .game-header {
+        margin-bottom: 24px;
+    }
+
+    .game-header h1 {
+        color: var(--text-strong);
+        font-size: clamp(1.85rem, 4.5vw, 2.4rem);
+        letter-spacing: 0.01em;
+        margin-bottom: 10px;
+    }
+
+    .game-subtitle {
+        color: var(--text-muted);
+        font-size: 0.98rem;
+    }
+
+    .demo-badge {
+        display: inline-block;
+        background: rgba(245, 158, 11, 0.14);
+        color: var(--accent-soft);
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        margin-bottom: 10px;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .game-area {
+        width: 100%;
+        padding: 20px 0 0;
+    }
+
+    .admin-start-panel {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        max-width: 420px;
+        margin-bottom: 14px;
+        margin-left: auto;
+        margin-right: auto;
+        padding: 10px 12px;
+        background: rgba(245, 158, 11, 0.12);
+        border: 1px solid rgba(249, 115, 22, 0.4);
+        border-radius: 10px;
+        color: #ffe9cd;
+        font-size: 0.9rem;
+    }
+
+    .admin-control {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .admin-start-panel label {
+        color: #ffd8a8;
+        font-weight: 600;
+    }
+
+    .admin-start-panel input[type="number"] {
+        width: 78px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        border: 1px solid rgba(249, 115, 22, 0.6);
+        background: rgba(15, 22, 35, 0.82);
+        color: #fff7ed;
+        text-align: center;
+        font-weight: 700;
+    }
+
+    .admin-toggle {
+        width: 16px;
+        height: 16px;
+        accent-color: #f59e0b;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        width: min(100%, 340px);
+        margin: 0 auto 24px;
+        transform-origin: center center;
+    }
+
+    .grid.grid-spin {
+        animation: grid-spin-slow var(--grid-spin-duration, 120s) linear infinite;
+    }
+
+    .grid.grid-spin.grid-spin-ccw {
+        animation-direction: reverse;
+    }
+
+    .cell {
+        aspect-ratio: 1;
+        background: rgba(224, 74, 255, 0.1);
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        position: relative;
+        overflow: visible;
+        box-shadow: none;
+        transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .cell::before {
+        content: none;
+    }
+
+    .cell:hover {
+        background: rgba(224, 74, 255, 0.14);
+    }
+
+    .cell.active {
+        background: rgba(224, 74, 255, 0.2);
+        border: 2px solid #f59e0b;
+        box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.18);
+    }
+
+    .cell.correct {
+        background: rgba(224, 74, 255, 0.18);
+    }
+
+    .cell.clicked {
+        outline: 2px solid rgba(255, 255, 255, 0.92);
+        outline-offset: 0;
+    }
+
+    .cell.wrong {
+        background: rgba(248, 113, 113, 0.45);
+    }
+
+    .tile-progress-pop {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -6px);
+        color: #fff7ed;
+        font-size: 1.65rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        text-shadow: 0 0 10px rgba(251, 146, 60, 0.65);
+        pointer-events: none;
+        z-index: 3;
+        animation: tile-progress-fall 1.05s ease-out forwards;
+    }
+
+    .message {
+        font-size: 1rem;
+        max-width: 420px;
+        margin-bottom: 16px;
+        margin-left: auto;
+        margin-right: auto;
+        color: #ffe9cd;
+        background: rgba(15, 22, 35, 0.86);
+        border: 1px solid var(--line-soft);
+        border-radius: 10px;
+        padding: 10px 14px;
+        min-height: 30px;
+    }
+
+    .message:empty {
+        display: none;
+    }
+
+    .btn-start {
+        padding: 14px 36px;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #f8f5ff;
+        background: rgba(224, 74, 255, 0.12);
+        border: none;
+        box-shadow: none;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-start:hover {
+        opacity: 1;
+        transform: none;
+        background: rgba(224, 74, 255, 0.18);
+    }
+
+    #startBtn.btn-start {
+        animation: none;
+    }
+
+    #startBtn.btn-start::after {
+        content: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        #startBtn.btn-start {
+            animation: none;
+        }
+
+        #startBtn.btn-start::after {
+            animation: none;
+        }
+
+        .grid.grid-spin {
+            animation: none;
+        }
+    }
+
+    .game-over {
+        display: none;
+        max-width: 480px;
+        margin: 0 auto;
+        background: rgba(15, 22, 35, 0.68);
+        border: 1px solid var(--line-soft);
+        border-radius: 16px;
+        padding: 26px 20px;
+    }
+
+    .game-over h2 {
+        font-size: 2rem;
+        margin-bottom: 14px;
+        color: #ffe8c4;
+    }
+
+    .final-score {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #fbbf24;
+        margin-bottom: 8px;
+        text-shadow: 0 0 20px rgba(245, 158, 11, 0.28);
+    }
+
+    .game-over-note {
+        color: var(--text-muted);
+        margin-bottom: 18px;
+    }
+
+    .signup-cta {
+        background: linear-gradient(145deg, rgba(245, 158, 11, 0.14), rgba(17, 24, 39, 0.52));
+        border: 1px solid rgba(249, 115, 22, 0.34);
+        border-radius: 12px;
+        padding: 25px;
+        margin-top: 25px;
+    }
+
+    .signup-cta h3 {
+        margin-bottom: 10px;
+        color: #fff1db;
+    }
+
+    .signup-cta p {
+        color: var(--text-muted);
+        margin-bottom: 15px;
+        font-size: 0.95rem;
+    }
+
+    .cta-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    #xpGained {
+        color: #4ade80;
+        margin-bottom: 18px;
+        font-weight: 600;
+    }
+
+    @media (max-width: 560px) {
+        .game-container {
+            padding: 20px 12px 28px;
+        }
+
+        .game-area {
+            padding-top: 12px;
+        }
+
+        .admin-start-panel {
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 10px;
+        }
+
+        .admin-control {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .message {
+            font-size: 0.95rem;
+            padding: 9px 10px;
+        }
+
+        .grid {
+            width: min(100%, 300px);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn-start {
+            width: min(100%, 300px);
+            padding: 12px 20px;
+        }
+
+        .signup-cta {
+            padding: 16px 12px;
+        }
+
+        .game-over {
+            padding: 16px 12px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="game-container">
+    <div class="game-area">
+        <div class="message" id="message"></div>
+        {% if current_user.is_authenticated and current_user.is_admin %}
+        <div class="admin-start-panel" id="adminStartPanel">
+            <div class="admin-control">
+                <label for="adminStartScore">Start Score</label>
+                <input id="adminStartScore" type="number" min="0" max="30" value="0">
+            </div>
+            <div class="admin-control">
+                <input id="adminForceRotation" class="admin-toggle" type="checkbox">
+                <label for="adminForceRotation">Force Rotation</label>
+            </div>
+            <div class="admin-control">
+                <label for="adminRotationSeconds">Spin (s)</label>
+                <input id="adminRotationSeconds" type="number" min="10" max="240" step="1" value="120">
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="grid" id="grid">
+            <div class="cell" data-index="0"></div>
+            <div class="cell" data-index="1"></div>
+            <div class="cell" data-index="2"></div>
+            <div class="cell" data-index="3"></div>
+            <div class="cell" data-index="4"></div>
+            <div class="cell" data-index="5"></div>
+            <div class="cell" data-index="6"></div>
+            <div class="cell" data-index="7"></div>
+            <div class="cell" data-index="8"></div>
+        </div>
+
+        <button class="btn btn-primary btn-start" id="startBtn">Start</button>
+    </div>
+
+    <div class="game-over" id="gameOver">
+        <h2>Game Over</h2>
+        <div class="final-score" id="finalScore">0</div>
+        <p class="game-over-note">sequences completed</p>
+
+        {% if not current_user.is_authenticated %}
+        <div class="signup-cta">
+            <h3>Track Your Progress</h3>
+            <p>Create a free account to save your scores, build your cognitive profile, and compete on the leaderboard.
+            </p>
+            <div class="cta-buttons">
+                <a href="{{ url_for('register') }}" class="btn btn-primary">Create Account</a>
+                <button class="btn btn-secondary" id="restartBtn">Play Again</button>
+            </div>
+        </div>
+        {% else %}
+        <p id="xpGained"></p>
+        <button class="btn btn-primary btn-start" id="restartBtn">Play Again</button>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const cells = document.querySelectorAll('.cell');
+    const gridEl = document.getElementById('grid');
+    const messageEl = document.getElementById('message');
+    const startBtn = document.getElementById('startBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const gameOverEl = document.getElementById('gameOver');
+    const gameAreaEl = document.querySelector('.game-area');
+    const finalScoreEl = document.getElementById('finalScore');
+    const xpGainedEl = document.getElementById('xpGained');
+    const adminStartPanelEl = document.getElementById('adminStartPanel');
+    const adminStartScoreEl = document.getElementById('adminStartScore');
+    const adminForceRotationEl = document.getElementById('adminForceRotation');
+    const adminRotationSecondsEl = document.getElementById('adminRotationSeconds');
+    const isAdmin = {{ 'true' if current_user.is_authenticated and current_user.is_admin else 'false' }};
+
+    let sequence = [];
+    let playerSequence = [];
+    let level = 1;
+    let score = 0;
+    let isPlaying = false;
+    let isShowingSequence = false;
+    let sessionId = null;
+    let spinCounterClockwise = false;
+    let responseTimesMs = [];
+    let responsePhaseLastInputAt = 0;
+    const DEFAULT_SPIN_DURATION_SECONDS = 120;
+    const SPIN_START_LEVEL = 5;
+    const globalAudio = window.SynapyAudio || null;
+
+    // --- Web Audio API Setup ---
+    let audioCtx = null;
+    // Base frequencies for Solfège (Do, Re, Mi, Fa, Sol, La, Ti) in C Major (C4 to B4)
+    const baseFrequencies = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88];
+
+    function isSoundEnabled() {
+        if (!globalAudio || typeof globalAudio.isEnabled !== 'function') {
+            return true;
+        }
+        return globalAudio.isEnabled();
+    }
+
+    function initAudio() {
+        if (!isSoundEnabled()) return;
+        if (globalAudio && typeof globalAudio.ensureContext === 'function') {
+            audioCtx = globalAudio.ensureContext();
+            return;
+        }
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+    }
+
+    // Procedurally generate tone. Index 0-6 is octave 1. Index 7-13 is octave 2, etc.
+    function playTone(sequenceIndex) {
+        if (!isSoundEnabled()) return;
+        if (!audioCtx) return;
+
+        const scaleIndex = sequenceIndex % 7;
+        const octaveMultiplier = Math.pow(2, Math.floor(sequenceIndex / 7));
+        const frequency = baseFrequencies[scaleIndex] * octaveMultiplier;
+
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+
+        // Envelope to make it sound like a soft bell/synth rather than a harsh beep
+        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.5);
+    }
+
+    function playDing() {
+        if (!isSoundEnabled()) return;
+        if (!audioCtx) return;
+
+        const now = audioCtx.currentTime;
+        const start = now + 0.25;
+        const gainNode = audioCtx.createGain();
+        gainNode.gain.setValueAtTime(0.0001, start);
+        gainNode.gain.exponentialRampToValueAtTime(0.35, start + 0.015);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, start + 0.28);
+        gainNode.connect(audioCtx.destination);
+
+        const osc1 = audioCtx.createOscillator();
+        osc1.type = 'triangle';
+        osc1.frequency.setValueAtTime(1046.5, start);
+        osc1.connect(gainNode);
+        osc1.start(start);
+        osc1.stop(start + 0.16);
+
+        const osc2 = audioCtx.createOscillator();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1318.5, start + 0.1);
+        osc2.connect(gainNode);
+        osc2.start(start + 0.1);
+        osc2.stop(start + 0.28);
+    }
+
+    function showTileProgressPop(cell, value) {
+        if (!cell) return;
+
+        const pop = document.createElement('span');
+        pop.className = 'tile-progress-pop';
+        pop.textContent = String(value);
+        cell.appendChild(pop);
+        pop.addEventListener('animationend', () => pop.remove(), { once: true });
+    }
+
+    function nowMs() {
+        if (window.performance && typeof window.performance.now === 'function') {
+            return window.performance.now();
+        }
+        return Date.now();
+    }
+
+    function markPlayerTurnStart() {
+        responsePhaseLastInputAt = nowMs();
+    }
+
+    function recordResponseSample() {
+        const now = nowMs();
+        if (!responsePhaseLastInputAt) {
+            responsePhaseLastInputAt = now;
+            return;
+        }
+        responseTimesMs.push(Math.max(0, now - responsePhaseLastInputAt));
+        responsePhaseLastInputAt = now;
+    }
+
+    function getAverageResponseTimeMs() {
+        if (!responseTimesMs.length) return null;
+        const total = responseTimesMs.reduce((sum, value) => sum + value, 0);
+        return Math.round(total / responseTimesMs.length);
+    }
+
+    function getAdminRotationSeconds() {
+        if (!isAdmin || !adminRotationSecondsEl) return DEFAULT_SPIN_DURATION_SECONDS;
+        const raw = Number.parseInt(adminRotationSecondsEl.value, 10);
+        if (Number.isNaN(raw)) return DEFAULT_SPIN_DURATION_SECONDS;
+        return Math.max(10, Math.min(240, raw));
+    }
+
+    function isAdminForceRotationEnabled() {
+        return Boolean(isAdmin && adminForceRotationEl && adminForceRotationEl.checked);
+    }
+
+    function applyGridSpinSpeed() {
+        if (!gridEl) return;
+        const spinSeconds = getAdminRotationSeconds();
+        gridEl.style.setProperty('--grid-spin-duration', `${spinSeconds}s`);
+    }
+
+    function updateGridSpin() {
+        if (!gridEl) return;
+        applyGridSpinSpeed();
+        const shouldSpin = isPlaying
+            && !isShowingSequence
+            && (isAdminForceRotationEnabled() || level >= SPIN_START_LEVEL);
+        gridEl.classList.toggle('grid-spin', shouldSpin);
+        gridEl.classList.toggle('grid-spin-ccw', shouldSpin && spinCounterClockwise);
+    }
+
+    function getAdminStartScore() {
+        if (!isAdmin || !adminStartScoreEl) return 0;
+        const raw = Number.parseInt(adminStartScoreEl.value, 10);
+        if (Number.isNaN(raw)) return 0;
+        return Math.max(0, Math.min(30, raw));
+    }
+
+    function showAdminStartScreen() {
+        if (!isAdmin) {
+            startGame();
+            return;
+        }
+
+        isPlaying = false;
+        gameOverEl.style.display = 'none';
+        gameAreaEl.style.display = 'block';
+        startBtn.style.display = 'inline-block';
+        if (adminStartPanelEl) {
+            adminStartPanelEl.style.display = 'flex';
+        }
+        cells.forEach(cell => cell.classList.remove('active', 'correct', 'clicked', 'wrong'));
+        messageEl.textContent = '';
+        updateGridSpin();
+    }
+    // ---------------------------
+
+    async function startGame() {
+        // Initialize audio context on first user interaction to bypass browser autoplay policies
+        initAudio();
+        const adminStartScore = getAdminStartScore();
+
+        const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
+
+        if (isAuthenticated) {
+            const res = await fetch('/api/session/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ game_slug: 'sequence-memory', difficulty: 1 })
+            });
+            const data = await res.json();
+            sessionId = data.session_id;
+        }
+
+        sequence = [];
+        playerSequence = [];
+        responseTimesMs = [];
+        responsePhaseLastInputAt = 0;
+        score = adminStartScore;
+        level = adminStartScore + 1;
+        for (let i = 0; i < adminStartScore; i++) {
+            sequence.push(Math.floor(Math.random() * 9));
+        }
+        isPlaying = true;
+        isShowingSequence = true;
+        updateGridSpin();
+
+        startBtn.style.display = 'none';
+        if (adminStartPanelEl) {
+            adminStartPanelEl.style.display = 'none';
+        }
+        gameOverEl.style.display = 'none';
+        gameAreaEl.style.display = 'block';
+
+        nextRound();
+    }
+
+    function nextRound() {
+        playerSequence = [];
+        sequence.push(Math.floor(Math.random() * 9));
+        spinCounterClockwise = Math.random() < 0.5;
+
+        isShowingSequence = true;
+        updateGridSpin();
+
+        setTimeout(() => showSequence(0), 500);
+    }
+
+    function showSequence(index) {
+        if (index >= sequence.length) {
+            isShowingSequence = false;
+            markPlayerTurnStart();
+            updateGridSpin();
+            return;
+        }
+
+        const cell = cells[sequence[index]];
+        cell.classList.add('active');
+        playTone(index); // Play the procedural tone based on the sequence position
+
+        setTimeout(() => {
+            cell.classList.remove('active');
+            setTimeout(() => showSequence(index + 1), 200);
+        }, 400);
+    }
+
+    function handleCellClick(index) {
+        if (!isPlaying || isShowingSequence) return;
+
+        // Auto-init audio just in case they click before starting (though UI prevents this)
+        initAudio();
+
+        const cell = cells[index];
+        recordResponseSample();
+        cell.classList.add('clicked');
+        setTimeout(() => cell.classList.remove('clicked'), 140);
+        playerSequence.push(index);
+
+        const currentIndex = playerSequence.length - 1;
+
+        if (playerSequence[currentIndex] === sequence[currentIndex]) {
+            cell.classList.add('correct');
+            playTone(currentIndex); // Play tone on correct tap
+            setTimeout(() => cell.classList.remove('correct'), 200);
+
+            if (playerSequence.length === sequence.length) {
+                score++;
+                level++;
+                // Immediately transition to computer-turn state so spin does not start
+                // during the between-round delay when thresholds are crossed.
+                isShowingSequence = true;
+                updateGridSpin();
+                showTileProgressPop(cell, score);
+                playDing();
+                setTimeout(nextRound, 1000);
+            }
+        } else {
+            cell.classList.add('wrong');
+
+            // Play an error buzz
+            if (audioCtx && isSoundEnabled()) {
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                const now = audioCtx.currentTime;
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                gainNode.gain.setValueAtTime(0.0001, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.06, now + 0.02);
+                gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+
+            setTimeout(() => cell.classList.remove('wrong'), 200);
+            endGame();
+        }
+    }
+
+    async function endGame() {
+        isPlaying = false;
+        updateGridSpin();
+        messageEl.textContent = '';
+        const avgResponseTimeMs = getAverageResponseTimeMs();
+
+        const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
+
+        if (isAuthenticated && sessionId) {
+            const res = await fetch(`/api/session/${sessionId}/end`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    score: score,
+                    accuracy: score > 0 ? 1.0 : 0,
+                    rounds_completed: score,
+                    avg_response_time_ms: avgResponseTimeMs,
+                    raw_data: {
+                        response_samples: responseTimesMs.length
+                    }
+                })
+            });
+            const data = await res.json();
+            if (xpGainedEl) {
+                xpGainedEl.textContent = `+${data.xp_earned} XP`;
+            }
+        }
+
+        gameAreaEl.style.display = 'none';
+        gameOverEl.style.display = 'block';
+        finalScoreEl.textContent = score;
+    }
+
+    cells.forEach((cell, index) => {
+        cell.addEventListener('click', () => handleCellClick(index));
+    });
+
+    startBtn.addEventListener('click', startGame);
+    restartBtn.addEventListener('click', isAdmin ? showAdminStartScreen : startGame);
+
+    if (adminForceRotationEl) {
+        adminForceRotationEl.addEventListener('change', updateGridSpin);
+    }
+    if (adminRotationSecondsEl) {
+        adminRotationSecondsEl.addEventListener('input', updateGridSpin);
+        adminRotationSecondsEl.addEventListener('change', updateGridSpin);
+    }
+    applyGridSpinSpeed();
+</script>
+{% endblock %}

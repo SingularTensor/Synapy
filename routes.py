@@ -1,0 +1,560 @@
+import math
+import os
+from functools import wraps
+from flask import render_template, request, jsonify, redirect, url_for, flash, abort
+from flask_login import login_user, logout_user, login_required, current_user
+
+from app import app
+from database import db, User, GameType, GameSession, CognitiveScore, COGNITIVE_DOMAINS
+
+COGNITIVE_WEIGHT_VERSION = '2026-02-22-v3'
+COGNITIVE_WEIGHT_TOTAL = 5.0
+COGNITIVE_WEIGHT_MAX_PER_TRAIT = 3.0
+NORMALIZATION_LEVEL_STEP = 10.0
+MIN_POPULATION_SAMPLE_FOR_FULL_WEIGHT = 25
+TRAIT_RETRY_WINDOW_BELOW_PEAK = 1
+
+GAME_COGNITIVE_WEIGHTS = {
+    # Total per-game budget: 5.0
+    'sequence-memory': {
+        'processing_speed': 0.0,
+        'working_memory': 3.0,
+        # Existing domain key used as spatial-reasoning proxy.
+        'pattern_recognition': 1.0,
+        'attention': 1.0,
+        'verbal_fluency': 0.0,
+    },
+    # Total per-game budget: 5.0
+    'box-adding': {
+        'processing_speed': 0.0,
+        'working_memory': 2.5,
+        'pattern_recognition': 0.0,
+        'attention': 2.5,
+        'verbal_fluency': 0.0,
+    },
+    # Total per-game budget: 5.0
+    'color-word': {
+        'processing_speed': 1.6,
+        'working_memory': 0.3,
+        'pattern_recognition': 0.0,
+        'attention': 2.1,
+        'verbal_fluency': 1.0,
+    },
+}
+
+GAME_BASELINE_LEVELS = {
+    'sequence-memory': 4.0,
+    'box-adding': 3.0,
+    'color-word': 12.0,
+}
+
+MANAGED_COGNITIVE_DOMAINS = sorted({
+    domain
+    for per_game in GAME_COGNITIVE_WEIGHTS.values()
+    for domain in per_game.keys()
+})
+
+def validate_game_cognitive_weights(weight_map):
+    for game_slug, domain_weights in weight_map.items():
+        if not domain_weights:
+            raise ValueError(f'Game {game_slug} has no cognitive weights configured')
+
+        unknown_domains = [domain for domain in domain_weights if domain not in COGNITIVE_DOMAINS]
+        if unknown_domains:
+            raise ValueError(f'Game {game_slug} has unknown domains: {unknown_domains}')
+
+        values = [float(value) for value in domain_weights.values()]
+        if any(value < 0 for value in values):
+            raise ValueError(f'Game {game_slug} has negative trait weights')
+
+        total = sum(values)
+        if not math.isclose(total, COGNITIVE_WEIGHT_TOTAL, rel_tol=0.0, abs_tol=1e-6):
+            raise ValueError(
+                f'Game {game_slug} weights must sum to {COGNITIVE_WEIGHT_TOTAL}, got {total}'
+            )
+
+        if not any(math.isclose(value, 0.0, rel_tol=0.0, abs_tol=1e-9) for value in values):
+            raise ValueError(f'Game {game_slug} must include at least one zero-weight trait')
+
+        if max(values) > COGNITIVE_WEIGHT_MAX_PER_TRAIT:
+            raise ValueError(
+                f'Game {game_slug} has a trait above max {COGNITIVE_WEIGHT_MAX_PER_TRAIT}'
+            )
+
+        baseline_level = GAME_BASELINE_LEVELS.get(game_slug)
+        if baseline_level is None:
+            raise ValueError(f'Game {game_slug} is missing a baseline level calibration')
+        if float(baseline_level) < 0:
+            raise ValueError(f'Game {game_slug} has invalid baseline level {baseline_level}')
+
+
+validate_game_cognitive_weights(GAME_COGNITIVE_WEIGHTS)
+
+
+def game_template_exists(game_slug):
+    template_path = os.path.join(app.root_path, 'templates', 'games', f'{game_slug}.html')
+    return os.path.exists(template_path)
+
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_admin:
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def recruiter_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_recruiter:
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
+@app.route('/problems')
+def problems():
+    # Fetch all active games to display on the problems list
+    game_types = GameType.query.filter_by(is_active=True).all()
+    for game in game_types:
+        game.is_coming_soon = not game_template_exists(game.slug)
+    return render_template('problems.html', games=game_types)
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('problems'))
+
+    if request.method == 'POST':
+        login_input = request.form.get('username')
+        password = request.form.get('password')
+
+        user = User.query.filter_by(username=login_input).first()
+        if not user:
+            user = User.query.filter_by(email=login_input).first()
+
+        if user and user.check_password(password):
+            login_user(user)
+            return redirect(url_for('problems'))
+
+        flash('Invalid username/email or password')
+
+    return render_template('login.html', mode='Login')
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('problems'))
+
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+
+        if User.query.filter_by(username=username).first():
+            flash('Username already taken')
+            return render_template('login.html', mode='Register')
+
+        if User.query.filter_by(email=email).first():
+            flash('Email already registered')
+            return render_template('login.html', mode='Register')
+
+        new_user = User(username=username, email=email)
+        new_user.set_password(password)
+        db.session.add(new_user)
+        db.session.commit()
+
+        login_user(new_user)
+        return redirect(url_for('problems'))
+
+    return render_template('login.html', mode='Register')
+
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
+
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    game_types = GameType.query.filter_by(is_active=True).all()
+    recent_sessions = GameSession.query.filter_by(user_id=current_user.id)\
+        .order_by(GameSession.started_at.desc()).limit(5).all()
+    cognitive_scores = {s.domain: s for s in current_user.cognitive_scores}
+
+    return render_template('dashboard.html',
+                         game_types=game_types,
+                         recent_sessions=recent_sessions,
+                         cognitive_scores=cognitive_scores,
+                         domains=COGNITIVE_DOMAINS)
+
+
+@app.route('/play/<game_slug>')
+@login_required
+def play_game(game_slug):
+    game_type = GameType.query.filter_by(slug=game_slug, is_active=True).first_or_404()
+    if not game_template_exists(game_slug):
+        return redirect(url_for('coming_soon', game_slug=game_slug))
+    return render_template(f'games/{game_slug}.html', game_type=game_type)
+
+
+@app.route('/try/<game_slug>')
+def try_game(game_slug):
+    game_type = GameType.query.filter_by(slug=game_slug, is_active=True).first_or_404()
+    
+    if game_type.access_level == 'premium':
+        flash('This is an Elite metric assessment. Please upgrade to Premium to play.', 'warning')
+        return redirect(url_for('problems'))
+
+    if not game_template_exists(game_slug):
+        return redirect(url_for('coming_soon', game_slug=game_slug))
+
+    return render_template(f'games/{game_slug}.html', game_type=game_type)
+
+
+@app.route('/coming-soon/<game_slug>')
+def coming_soon(game_slug):
+    game_type = GameType.query.filter_by(slug=game_slug, is_active=True).first_or_404()
+    return render_template('coming_soon.html', game_type=game_type)
+
+
+@app.route('/api/session/start', methods=['POST'])
+@login_required
+def start_session():
+    data = request.get_json()
+    game_slug = data.get('game_slug')
+
+    game_type = GameType.query.filter_by(slug=game_slug).first()
+    if not game_type:
+        return jsonify({'error': 'Invalid game'}), 400
+
+    session = GameSession(
+        user_id=current_user.id,
+        game_type_id=game_type.id,
+        difficulty_level=data.get('difficulty', 1)
+    )
+    db.session.add(session)
+    db.session.commit()
+
+    return jsonify({'session_id': session.id})
+
+
+@app.route('/api/session/<int:session_id>/end', methods=['POST'])
+@login_required
+def end_session(session_id):
+    from datetime import datetime
+
+    session = GameSession.query.get_or_404(session_id)
+    if session.user_id != current_user.id:
+        abort(403)
+
+    data = request.get_json()
+
+    session.ended_at = datetime.utcnow()
+    session.score = data.get('score', 0)
+    session.accuracy = data.get('accuracy')
+    session.avg_response_time_ms = data.get('avg_response_time_ms')
+    session.rounds_completed = data.get('rounds_completed', 0)
+    normalization = calculate_game_normalization(session)
+
+    incoming_raw_data = data.get('raw_data')
+    if isinstance(incoming_raw_data, dict):
+        session.raw_data = dict(incoming_raw_data)
+    else:
+        session.raw_data = {}
+    session.raw_data['cognitive_weight_version'] = COGNITIVE_WEIGHT_VERSION
+    session.raw_data['normalization'] = normalization
+
+    if session.started_at:
+        session.duration_seconds = int((session.ended_at - session.started_at).total_seconds())
+
+    xp = calculate_xp(session)
+    session.xp_earned = xp
+    current_user.total_xp += xp
+    cognitive_update = apply_cognitive_progression_rewards(session, normalization)
+    trait_state = recompute_user_cognitive_scores(session.user_id)
+
+    db.session.commit()
+
+    return jsonify({
+        'xp_earned': xp,
+        'total_xp': current_user.total_xp,
+        'score': session.score,
+        'normalized_signal': normalization['normalized_signal'],
+        'cognitive_weight_version': COGNITIVE_WEIGHT_VERSION,
+        'cognitive_level_gain': cognitive_update['level_gain'],
+        'cognitive_domain_gains': cognitive_update['domain_gains'],
+        'cognitive_domain_confidence': trait_state['domain_confidence'],
+    })
+
+
+def calculate_xp(session):
+    base_xp = 10
+    accuracy_bonus = int((session.accuracy or 0) * 20)
+    difficulty_bonus = (session.difficulty_level - 1) * 5
+    return base_xp + accuracy_bonus + difficulty_bonus
+
+
+def clamp(value, min_value, max_value):
+    return max(min_value, min(max_value, value))
+
+
+def calculate_game_normalization(session):
+    current_level = max(0, int(session.rounds_completed or 0))
+    game_slug = session.game_type.slug if session.game_type else None
+    baseline_level = float(GAME_BASELINE_LEVELS.get(game_slug, 0.0))
+    baseline_signal = clamp(
+        50.0 + ((current_level - baseline_level) * NORMALIZATION_LEVEL_STEP),
+        0.0,
+        100.0,
+    )
+
+    peer_rows = db.session.query(GameSession.rounds_completed).join(
+        User, User.id == GameSession.user_id
+    ).filter(
+        GameSession.game_type_id == session.game_type_id,
+        GameSession.id != session.id,
+        GameSession.rounds_completed.isnot(None),
+        User.is_admin.is_(False),
+    ).all()
+
+    peer_levels = [max(0, int(row[0] or 0)) for row in peer_rows]
+    sample_levels = peer_levels + [current_level]
+    sample_size = len(sample_levels)
+
+    if sample_size <= 1:
+        return {
+            'current_level': current_level,
+            'sample_size': sample_size,
+            'baseline_level': baseline_level,
+            'baseline_signal': round(baseline_signal, 2),
+            'population_weight': 0.0,
+            'percentile': 50.0,
+            'z_score': 0.0,
+            'normalized_signal': round(baseline_signal, 2),
+        }
+
+    mean_level = sum(sample_levels) / sample_size
+    variance = sum((value - mean_level) ** 2 for value in sample_levels) / sample_size
+    std_dev = math.sqrt(variance)
+    z_score = (current_level - mean_level) / std_dev if std_dev > 0 else 0.0
+
+    less_count = sum(1 for value in sample_levels if value < current_level)
+    equal_count = sum(1 for value in sample_levels if value == current_level)
+    percentile = (100.0 * (less_count + (0.5 * equal_count)) / sample_size)
+
+    z_score_scaled = clamp(50.0 + (15.0 * z_score), 0.0, 100.0)
+    population_signal = clamp((0.7 * percentile) + (0.3 * z_score_scaled), 0.0, 100.0)
+    population_weight = clamp(
+        (sample_size - 1) / float(max(1, MIN_POPULATION_SAMPLE_FOR_FULL_WEIGHT - 1)),
+        0.0,
+        1.0,
+    )
+    normalized_signal = (
+        (population_weight * population_signal)
+        + ((1.0 - population_weight) * baseline_signal)
+    )
+    normalized_signal = clamp(normalized_signal, 0.0, 100.0)
+
+    return {
+        'current_level': current_level,
+        'sample_size': sample_size,
+        'baseline_level': baseline_level,
+        'baseline_signal': round(baseline_signal, 2),
+        'population_weight': round(population_weight, 4),
+        'percentile': round(percentile, 2),
+        'z_score': round(z_score, 4),
+        'normalized_signal': round(normalized_signal, 2),
+    }
+
+
+def extract_normalized_signal(session):
+    raw_data = session.raw_data if isinstance(session.raw_data, dict) else {}
+    normalization = raw_data.get('normalization') if isinstance(raw_data.get('normalization'), dict) else {}
+    value = normalization.get('normalized_signal')
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 50.0
+
+
+def recompute_user_cognitive_scores(user_id):
+    from datetime import datetime
+
+    user = User.query.get(user_id)
+    if not user or user.is_admin:
+        return {'domain_scores': {}, 'domain_confidence': {}}
+
+    sessions = db.session.query(GameSession, GameType.slug).join(
+        GameType, GameType.id == GameSession.game_type_id
+    ).filter(
+        GameSession.user_id == user_id,
+        GameType.slug.in_(list(GAME_COGNITIVE_WEIGHTS.keys())),
+    ).all()
+
+    sessions_by_game = {}
+    for session_obj, game_slug in sessions:
+        domain_weights = GAME_COGNITIVE_WEIGHTS.get(game_slug)
+        if not domain_weights:
+            continue
+
+        completed_level = max(0, int(session_obj.rounds_completed or 0))
+        if completed_level <= 0:
+            continue
+
+        normalized_signal = extract_normalized_signal(session_obj)
+        game_bucket = sessions_by_game.setdefault(
+            game_slug,
+            {
+                'domain_weights': domain_weights,
+                'peak_level': 0,
+                'sessions': [],
+            },
+        )
+        game_bucket['peak_level'] = max(game_bucket['peak_level'], completed_level)
+        game_bucket['sessions'].append(
+            {
+                'completed_level': completed_level,
+                'normalized_signal': normalized_signal,
+            }
+        )
+
+    best_game_domain_scores = {}
+    for game_slug, game_bucket in sessions_by_game.items():
+        peak_level = int(game_bucket['peak_level'])
+        min_eligible_level = max(1, peak_level - TRAIT_RETRY_WINDOW_BELOW_PEAK)
+        domain_weights = game_bucket['domain_weights']
+
+        # Prevent low-level farming: only peak and near-peak retries can impact traits.
+        for session_data in game_bucket['sessions']:
+            completed_level = int(session_data['completed_level'])
+            if completed_level < min_eligible_level:
+                continue
+
+            normalized_signal = float(session_data['normalized_signal'])
+            signal_multiplier = clamp((normalized_signal / 50.0), 0.5, 1.5)
+
+            for domain_key, weight in domain_weights.items():
+                if weight <= 0:
+                    continue
+                value = float(completed_level * weight * signal_multiplier)
+                key = (game_slug, domain_key)
+                prior_value = best_game_domain_scores.get(key, 0.0)
+                if value > prior_value:
+                    best_game_domain_scores[key] = value
+
+    domain_scores = {}
+    domain_confidence = {}
+    for (game_slug, domain_key), value in best_game_domain_scores.items():
+        domain_scores[domain_key] = max(domain_scores.get(domain_key, 0.0), value)
+        domain_confidence[domain_key] = domain_confidence.get(domain_key, 0) + 1
+
+    existing_rows = {
+        row.domain: row
+        for row in CognitiveScore.query.filter_by(user_id=user_id).all()
+    }
+
+    now = datetime.utcnow()
+    for domain_key in MANAGED_COGNITIVE_DOMAINS:
+        score_value = round(float(domain_scores.get(domain_key, 0.0)), 2)
+        confidence_value = int(domain_confidence.get(domain_key, 0))
+        existing_row = existing_rows.get(domain_key)
+
+        if existing_row is None:
+            if score_value <= 0 and confidence_value <= 0:
+                continue
+            existing_row = CognitiveScore(
+                user_id=user_id,
+                domain=domain_key,
+                score=0.0,
+                session_count=0,
+            )
+            db.session.add(existing_row)
+
+        existing_row.score = score_value
+        existing_row.session_count = confidence_value
+        existing_row.calculated_at = now
+
+    return {
+        'domain_scores': {key: round(value, 2) for key, value in domain_scores.items()},
+        'domain_confidence': domain_confidence,
+    }
+
+
+def apply_cognitive_progression_rewards(session, normalization=None):
+    game_slug = session.game_type.slug if session.game_type else None
+    domain_weights = GAME_COGNITIVE_WEIGHTS.get(game_slug)
+    if not domain_weights:
+        return {'level_gain': 0, 'domain_gains': {}}
+
+    # Admin runs are often test runs and should not alter progression scores.
+    if current_user.is_admin:
+        return {'level_gain': 0, 'domain_gains': {}}
+
+    completed_level = int(session.rounds_completed or 0)
+    if completed_level <= 0:
+        return {'level_gain': 0, 'domain_gains': {}}
+
+    previous_peak = db.session.query(db.func.max(GameSession.rounds_completed)).filter(
+        GameSession.user_id == session.user_id,
+        GameSession.game_type_id == session.game_type_id,
+        GameSession.id != session.id,
+    ).scalar() or 0
+
+    level_gain = max(0, completed_level - int(previous_peak))
+    if level_gain <= 0:
+        return {'level_gain': 0, 'domain_gains': {}}
+
+    normalized_signal = float((normalization or {}).get('normalized_signal', 50.0))
+    signal_multiplier = clamp((normalized_signal / 50.0), 0.5, 1.5)
+
+    domain_gains = {}
+    for domain_key, weight in domain_weights.items():
+        gain = float(level_gain * weight * signal_multiplier)
+        domain_gains[domain_key] = gain
+
+    return {
+        'level_gain': level_gain,
+        'domain_gains': domain_gains,
+    }
+
+
+
+@app.route('/profile/<username>')
+def public_profile(username):
+    user = User.query.filter_by(username=username).first_or_404()
+    if not user.profile_public and (not current_user.is_authenticated or current_user.id != user.id):
+        abort(404)
+
+    cognitive_scores = {s.domain: s for s in user.cognitive_scores}
+    return render_template('public_profile.html',
+                         profile_user=user,
+                         cognitive_scores=cognitive_scores,
+                         domains=COGNITIVE_DOMAINS)
+
+
+@app.route('/leaderboard')
+def leaderboard():
+    top_users = User.query.order_by(User.total_xp.desc()).limit(50).all()
+    return render_template('leaderboard.html', users=top_users)
+
+
+@app.route('/admin')
+@login_required
+@admin_required
+def admin_panel():
+    users = User.query.order_by(User.created_at.desc()).all()
+    game_types = GameType.query.all()
+    return render_template('admin.html', users=users, game_types=game_types)
