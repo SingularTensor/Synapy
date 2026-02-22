@@ -58,6 +58,7 @@
 <div class="auth-container">
     <h2>{{ mode }}</h2>
     <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label>Username{% if mode == 'Login' %} or Email{% endif %}</label>
             <input type="text" name="username" required>

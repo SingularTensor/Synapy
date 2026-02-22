@@ -127,6 +127,7 @@
                         <span class="action-disabled">Locked</span>
                         {% else %}
                         <form method="POST" action="{{ url_for('set_user_premium_access', user_id=user.id) }}" class="inline-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="is_premium" value="{{ 'false' if user.is_premium else 'true' }}">
                             <button type="submit" class="action-btn {{ 'action-revoke' if user.is_premium else 'action-grant' }}">
                                 {{ 'Revoke Premium' if user.is_premium else 'Grant Premium' }}

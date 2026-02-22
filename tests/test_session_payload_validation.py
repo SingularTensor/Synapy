@@ -1,11 +1,16 @@
 import unittest
 import uuid
+import re
 
 from app import app
 from database import db, User, GameType, GameSession
 
 
 class SessionPayloadValidationTests(unittest.TestCase):
+    CSRF_TOKEN_PATTERN = re.compile(
+        r'name="csrf_token"\s+value="([^"]+)"'
+    )
+
     @classmethod
     def setUpClass(cls):
         cls.app = app
@@ -71,11 +76,13 @@ class SessionPayloadValidationTests(unittest.TestCase):
         db.session.commit()
 
         self.client = self.app.test_client()
+        csrf_token = self._fetch_csrf_token('/login')
         login_response = self.client.post(
             '/login',
             data={
                 'username': self.user.username,
                 'password': 'password',
+                'csrf_token': csrf_token,
             },
             follow_redirects=False,
         )
@@ -95,6 +102,14 @@ class SessionPayloadValidationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.get_json() or {}
         return payload['session_id']
+
+    def _fetch_csrf_token(self, path):
+        response = self.client.get(path)
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        match = self.CSRF_TOKEN_PATTERN.search(html)
+        self.assertIsNotNone(match, msg=f'No CSRF token found on {path}')
+        return match.group(1)
 
     def _valid_end_payload(self):
         return {

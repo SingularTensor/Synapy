@@ -4,7 +4,7 @@ from functools import wraps
 from flask import render_template, request, jsonify, redirect, url_for, flash, abort
 from flask_login import login_user, logout_user, login_required, current_user
 
-from app import app
+from app import app, csrf
 from database import db, User, GameType, GameSession, CognitiveScore, COGNITIVE_DOMAINS
 
 COGNITIVE_WEIGHT_VERSION = '2026-02-22-v4'
@@ -413,6 +413,7 @@ def coming_soon(game_slug):
 
 
 @app.route('/api/session/start', methods=['POST'])
+@csrf.exempt
 @login_required
 def start_session():
     payload = request.get_json(silent=True)
@@ -441,6 +442,7 @@ def start_session():
 
 
 @app.route('/api/session/<int:session_id>/end', methods=['POST'])
+@csrf.exempt
 @login_required
 def end_session(session_id):
     from datetime import datetime
