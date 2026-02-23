@@ -1,8 +1,10 @@
 import math
 import os
 import json
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 import click
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from urllib import request as urllib_request
 from flask import render_template, request, jsonify, redirect, url_for, flash, abort, current_app
 from flask.cli import AppGroup
@@ -32,6 +34,12 @@ SESSION_DIFFICULTY_MAX = 10
 SESSION_SCORE_MAX = 1000000
 SESSION_ROUNDS_COMPLETED_MAX = 1000000
 SESSION_AVG_RESPONSE_TIME_MS_MAX = 600000
+TIMEZONE_NAME_MAX_LENGTH = 64
+MAX_LIVES = 8
+LIFE_REGEN_INTERVAL_SECONDS = 1800
+DEFAULT_GAME_LIFE_COST = 1
+MAX_GAME_LIFE_COST = 3
+GAME_LIFE_COSTS = {}
 
 GAME_COGNITIVE_WEIGHTS = {
     # Total per-game budget: 5.0
@@ -163,6 +171,211 @@ def get_billing_provider():
     if provider in {'dev', 'stripe'}:
         return provider
     return 'dev'
+
+
+def resolve_timezone_name(timezone_name):
+    normalized = (timezone_name or '').strip()
+    if not normalized:
+        return None
+
+    if normalized.upper() in {'UTC', 'Z'}:
+        return timezone.utc
+
+    try:
+        return ZoneInfo(normalized)
+    except ZoneInfoNotFoundError:
+        return None
+
+
+def get_streak_timezone(user=None):
+    user_timezone_name = (getattr(user, 'timezone', '') or '').strip()
+    if user_timezone_name:
+        user_timezone = resolve_timezone_name(user_timezone_name)
+        if user_timezone is not None:
+            return user_timezone
+        current_app.logger.warning(
+            'Invalid user timezone=%s for user_id=%s. Falling back to app timezone.',
+            user_timezone_name,
+            getattr(user, 'id', None),
+        )
+
+    configured_tz = (app.config.get('STREAK_TIMEZONE') or '').strip()
+    if configured_tz:
+        configured_timezone = resolve_timezone_name(configured_tz)
+        if configured_timezone is not None:
+            return configured_timezone
+        current_app.logger.warning(
+            'Invalid STREAK_TIMEZONE=%s. Falling back to server local timezone.',
+            configured_tz,
+        )
+
+    local_tz = datetime.now().astimezone().tzinfo
+    return local_tz or timezone.utc
+
+
+def to_streak_local_date(dt_value, tzinfo):
+    if dt_value is None:
+        return None
+
+    if dt_value.tzinfo is None:
+        dt_utc = dt_value.replace(tzinfo=timezone.utc)
+    else:
+        dt_utc = dt_value.astimezone(timezone.utc)
+
+    return dt_utc.astimezone(tzinfo).date()
+
+
+def update_user_streak(user, played_at_utc):
+    streak_tz = get_streak_timezone(user=user)
+    played_date = to_streak_local_date(played_at_utc, streak_tz)
+    previous_date = to_streak_local_date(user.last_played, streak_tz)
+
+    current_streak = max(0, int(user.current_streak or 0))
+    longest_streak = max(0, int(user.longest_streak or 0))
+
+    if previous_date is None:
+        current_streak = 1
+    elif played_date <= previous_date:
+        # Same-day or out-of-order completion should not inflate streak count.
+        current_streak = max(1, current_streak)
+    elif played_date == (previous_date + timedelta(days=1)):
+        # Local-midnight rollover: consecutive day extends streak.
+        current_streak = max(1, current_streak) + 1
+    else:
+        # Missed at least one local day; streak restarts.
+        current_streak = 1
+
+    user.current_streak = current_streak
+    user.longest_streak = max(longest_streak, current_streak)
+
+    if user.last_played is None or played_at_utc >= user.last_played:
+        user.last_played = played_at_utc
+
+    return {
+        'current_streak': int(user.current_streak),
+        'longest_streak': int(user.longest_streak),
+    }
+
+
+def get_game_life_cost(game_slug):
+    configured = GAME_LIFE_COSTS.get(game_slug, DEFAULT_GAME_LIFE_COST)
+    try:
+        parsed = int(configured)
+    except (TypeError, ValueError):
+        parsed = DEFAULT_GAME_LIFE_COST
+    return clamp(parsed, 1, MAX_GAME_LIFE_COST)
+
+
+def _normalize_user_life_state(user, now=None):
+    now = now or datetime.utcnow()
+    changed = False
+
+    if user.lives_remaining is None:
+        user.lives_remaining = MAX_LIVES
+        changed = True
+    else:
+        normalized = clamp(int(user.lives_remaining), 0, MAX_LIVES)
+        if normalized != user.lives_remaining:
+            user.lives_remaining = normalized
+            changed = True
+
+    if user.lives_last_updated_at is None:
+        user.lives_last_updated_at = now
+        changed = True
+
+    return changed
+
+
+def refresh_user_lives(user, now=None):
+    now = now or datetime.utcnow()
+    changed = _normalize_user_life_state(user, now=now)
+
+    if user.lives_remaining >= MAX_LIVES:
+        return changed
+
+    elapsed_seconds = int((now - user.lives_last_updated_at).total_seconds())
+    if elapsed_seconds < LIFE_REGEN_INTERVAL_SECONDS:
+        return changed
+
+    gained_lives = elapsed_seconds // LIFE_REGEN_INTERVAL_SECONDS
+    if gained_lives <= 0:
+        return changed
+
+    user.lives_remaining = min(MAX_LIVES, int(user.lives_remaining) + int(gained_lives))
+    changed = True
+
+    if user.lives_remaining >= MAX_LIVES:
+        user.lives_last_updated_at = now
+    else:
+        user.lives_last_updated_at = user.lives_last_updated_at + timedelta(
+            seconds=int(gained_lives) * LIFE_REGEN_INTERVAL_SECONDS
+        )
+    return changed
+
+
+def get_seconds_until_next_life(user, now=None):
+    now = now or datetime.utcnow()
+    _normalize_user_life_state(user, now=now)
+    if user.lives_remaining >= MAX_LIVES:
+        return 0
+
+    elapsed_seconds = max(0, int((now - user.lives_last_updated_at).total_seconds()))
+    progress = elapsed_seconds % LIFE_REGEN_INTERVAL_SECONDS
+    if progress == 0:
+        return LIFE_REGEN_INTERVAL_SECONDS
+    return LIFE_REGEN_INTERVAL_SECONDS - progress
+
+
+def format_seconds_short(total_seconds):
+    total_seconds = max(0, int(total_seconds))
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    if hours > 0:
+        return f'{hours}h {minutes}m'
+    return f'{minutes}m {seconds:02d}s'
+
+
+def build_user_lives_view(user, now=None):
+    now = now or datetime.utcnow()
+    changed = refresh_user_lives(user, now=now)
+    seconds_until_next = get_seconds_until_next_life(user, now=now)
+    return {
+        'lives_remaining': int(user.lives_remaining),
+        'lives_max': MAX_LIVES,
+        'seconds_until_next_life': int(seconds_until_next),
+        'next_life_eta': format_seconds_short(seconds_until_next) if seconds_until_next else 'Ready',
+        'changed': changed,
+    }
+
+
+def consume_user_lives(user, life_cost, now=None):
+    now = now or datetime.utcnow()
+    changed = refresh_user_lives(user, now=now)
+    available = int(user.lives_remaining or 0)
+    was_full = available >= MAX_LIVES
+    if available < int(life_cost):
+        return {
+            'ok': False,
+            'changed': changed,
+            'lives_remaining': available,
+            'lives_required': int(life_cost),
+            'seconds_until_next_life': get_seconds_until_next_life(user, now=now),
+        }
+
+    user.lives_remaining = max(0, available - int(life_cost))
+    if was_full:
+        # When spending from full, start the refill timer from this spend event.
+        user.lives_last_updated_at = now
+    elif user.lives_last_updated_at is None:
+        user.lives_last_updated_at = now
+
+    return {
+        'ok': True,
+        'changed': True,
+        'lives_remaining': int(user.lives_remaining),
+        'lives_required': int(life_cost),
+        'seconds_until_next_life': get_seconds_until_next_life(user, now=now),
+    }
 
 
 def _billing_log_context(**context):
@@ -782,6 +995,28 @@ def parse_float_payload_field(
     return parsed_value
 
 
+def validate_timezone_sync_payload(payload):
+    if not isinstance(payload, dict):
+        raise ValueError('Request body must be a JSON object')
+
+    timezone_name = payload.get('timezone')
+    if not isinstance(timezone_name, str):
+        raise ValueError('timezone must be a string')
+
+    normalized_timezone_name = timezone_name.strip()
+    if not normalized_timezone_name:
+        raise ValueError('timezone must be a non-empty string')
+    if len(normalized_timezone_name) > TIMEZONE_NAME_MAX_LENGTH:
+        raise ValueError(f'timezone must be <= {TIMEZONE_NAME_MAX_LENGTH} characters')
+
+    if resolve_timezone_name(normalized_timezone_name) is None:
+        raise ValueError('timezone must be a valid IANA timezone name')
+
+    if normalized_timezone_name.upper() in {'UTC', 'Z'}:
+        return 'UTC'
+    return normalized_timezone_name
+
+
 def validate_session_start_payload(payload):
     if not isinstance(payload, dict):
         raise ValueError('Request body must be a JSON object')
@@ -863,11 +1098,31 @@ def index():
 
 @app.route('/problems')
 def problems():
-    # Fetch all active games to display on the problems list
     game_types = GameType.query.filter_by(is_active=True).all()
     for game in game_types:
         game.is_coming_soon = not game_template_exists(game.slug)
-    return render_template('problems.html', games=game_types)
+        game.life_cost = get_game_life_cost(game.slug)
+
+    lives_view = {
+        'lives_remaining': MAX_LIVES,
+        'lives_max': MAX_LIVES,
+        'seconds_until_next_life': 0,
+        'next_life_eta': 'Ready',
+        'changed': False,
+    }
+    if current_user.is_authenticated:
+        lives_view = build_user_lives_view(current_user)
+        if lives_view['changed']:
+            db.session.commit()
+
+    return render_template(
+        'problems.html',
+        games=game_types,
+        lives_remaining=lives_view['lives_remaining'],
+        lives_max=lives_view['lives_max'],
+        seconds_until_next_life=lives_view['seconds_until_next_life'],
+        next_life_eta=lives_view['next_life_eta'],
+    )
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -1100,6 +1355,18 @@ def play_game(game_slug):
     if not user_can_access_game(current_user, game_type):
         flash('This is an Elite metric assessment. Please upgrade to Premium to play.', 'warning')
         return redirect(url_for('problems'))
+    if not current_user.is_admin:
+        life_cost = get_game_life_cost(game_slug)
+        lives_view = build_user_lives_view(current_user)
+        if lives_view['changed']:
+            db.session.commit()
+        if lives_view['lives_remaining'] < life_cost:
+            flash(
+                f'You need {life_cost} life to start this game. '
+                f'Next life in {lives_view["next_life_eta"]}.',
+                'warning',
+            )
+            return redirect(url_for('problems'))
     if not game_template_exists(game_slug):
         return redirect(url_for('coming_soon', game_slug=game_slug))
     return render_template(f'games/{game_slug}.html', game_type=game_type)
@@ -1125,8 +1392,27 @@ def coming_soon(game_slug):
     return render_template('coming_soon.html', game_type=game_type)
 
 
+@app.route('/api/user/timezone', methods=['POST'])
+@login_required
+@limiter.limit(lambda: app.config['RATE_LIMIT_TIMEZONE_SYNC'], methods=['POST'])
+def sync_user_timezone():
+    payload = request.get_json(silent=True)
+    try:
+        timezone_name = validate_timezone_sync_payload(payload)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    previous_timezone = (current_user.timezone or '').strip()
+    if previous_timezone != timezone_name:
+        current_user.timezone = timezone_name
+        db.session.commit()
+
+    return jsonify({'timezone': current_user.timezone or timezone_name})
+
+
 @app.route('/api/session/start', methods=['POST'])
 @login_required
+@limiter.limit(lambda: app.config['RATE_LIMIT_SESSION_START'], methods=['POST'])
 def start_session():
     payload = request.get_json(silent=True)
     try:
@@ -1142,6 +1428,26 @@ def start_session():
     if not user_can_access_game(current_user, game_type):
         return jsonify({'error': 'Premium access required'}), 403
 
+    life_cost = get_game_life_cost(game_slug)
+    life_use = {
+        'ok': True,
+        'changed': False,
+        'lives_remaining': int(getattr(current_user, 'lives_remaining', MAX_LIVES) or MAX_LIVES),
+        'seconds_until_next_life': 0,
+    }
+    if not current_user.is_admin:
+        life_use = consume_user_lives(current_user, life_cost)
+        if not life_use['ok']:
+            if life_use['changed']:
+                db.session.commit()
+            return jsonify({
+                'error': 'Not enough lives',
+                'lives_remaining': life_use['lives_remaining'],
+                'lives_required': life_use['lives_required'],
+                'seconds_until_next_life': life_use['seconds_until_next_life'],
+                'next_life_eta': format_seconds_short(life_use['seconds_until_next_life']),
+            }), 403
+
     session = GameSession(
         user_id=current_user.id,
         game_type_id=game_type.id,
@@ -1150,11 +1456,18 @@ def start_session():
     db.session.add(session)
     db.session.commit()
 
-    return jsonify({'session_id': session.id})
+    return jsonify({
+        'session_id': session.id,
+        'life_cost': life_cost,
+        'lives_remaining': life_use['lives_remaining'],
+        'seconds_until_next_life': life_use['seconds_until_next_life'],
+        'next_life_eta': format_seconds_short(life_use['seconds_until_next_life']),
+    })
 
 
 @app.route('/api/session/<int:session_id>/end', methods=['POST'])
 @login_required
+@limiter.limit(lambda: app.config['RATE_LIMIT_SESSION_END'], methods=['POST'])
 def end_session(session_id):
     from datetime import datetime
 
@@ -1187,6 +1500,7 @@ def end_session(session_id):
     xp = calculate_xp(session)
     session.xp_earned = xp
     current_user.total_xp += xp
+    streak_update = update_user_streak(current_user, session.ended_at)
     cognitive_update = apply_cognitive_progression_rewards(session, normalization)
     trait_state = recompute_user_cognitive_scores(session.user_id)
 
@@ -1201,6 +1515,8 @@ def end_session(session_id):
         'cognitive_level_gain': cognitive_update['level_gain'],
         'cognitive_domain_gains': cognitive_update['domain_gains'],
         'cognitive_domain_confidence': trait_state['domain_confidence'],
+        'current_streak': streak_update['current_streak'],
+        'longest_streak': streak_update['longest_streak'],
     })
 
 

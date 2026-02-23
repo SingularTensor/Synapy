@@ -21,12 +21,15 @@ class User(db.Model, UserMixin):
     stripe_customer_id = db.Column(db.String(255), unique=True, index=True)
     stripe_subscription_id = db.Column(db.String(255), unique=True, index=True)
     billing_status = db.Column(db.String(32), default='inactive', nullable=False, server_default=text("'inactive'"))
+    lives_remaining = db.Column(db.Integer, default=8, nullable=False, server_default=text('8'))
+    lives_last_updated_at = db.Column(db.DateTime, default=datetime.utcnow)
     profile_public = db.Column(db.Boolean, default=False)
 
     total_xp = db.Column(db.Integer, default=0)
     current_streak = db.Column(db.Integer, default=0)
     longest_streak = db.Column(db.Integer, default=0)
     last_played = db.Column(db.DateTime)
+    timezone = db.Column(db.String(64))
 
     sessions = db.relationship('GameSession', backref='user', lazy=True)
     cognitive_scores = db.relationship('CognitiveScore', backref='user', lazy=True)
@@ -156,10 +159,6 @@ def ensure_runtime_schema_compatibility():
     engine = db.engine
     inspector = inspect(engine)
     table_names = set(inspector.get_table_names())
-    # When Alembic is managing the schema, rely on migrations instead of
-    # runtime DDL so versioned upgrades remain deterministic.
-    if 'alembic_version' in table_names:
-        return
     if 'users' not in table_names:
         return
 
@@ -173,6 +172,13 @@ def ensure_runtime_schema_compatibility():
         statements.append('ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(255)')
     if 'billing_status' not in user_columns:
         statements.append("ALTER TABLE users ADD COLUMN billing_status VARCHAR(32) NOT NULL DEFAULT 'inactive'")
+    if 'lives_remaining' not in user_columns:
+        statements.append('ALTER TABLE users ADD COLUMN lives_remaining INTEGER NOT NULL DEFAULT 8')
+    if 'lives_last_updated_at' not in user_columns:
+        statements.append('ALTER TABLE users ADD COLUMN lives_last_updated_at DATETIME')
+        statements.append("UPDATE users SET lives_last_updated_at = CURRENT_TIMESTAMP WHERE lives_last_updated_at IS NULL")
+    if 'timezone' not in user_columns:
+        statements.append('ALTER TABLE users ADD COLUMN timezone VARCHAR(64)')
 
     if 'stripe_webhook_events' not in table_names:
         statements.append(

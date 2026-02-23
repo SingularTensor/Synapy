@@ -232,6 +232,7 @@
 </head>
 
 <body>
+    {% if request.endpoint != 'index' %}
     <nav class="elite-nav">
         <div class="nav-left">
             <a href="{{ url_for('index') }}" class="logo">
@@ -244,8 +245,6 @@
                 Synapy
             </a>
             <div class="nav-links main-links">
-                <a href="{{ url_for('index') }}"
-                    class="{% if request.endpoint == 'index' %}active{% endif %}">Explore</a>
                 <a href="{{ url_for('problems') }}"
                     class="{% if request.endpoint == 'problems' %}active{% endif %}">Problems</a>
             </div>
@@ -267,6 +266,7 @@
             {% endif %}
         </div>
     </nav>
+    {% endif %}
 
     {% with messages = get_flashed_messages() %}
     {% if messages %}
@@ -448,6 +448,56 @@
             };
         })();
     </script>
+    {% if current_user.is_authenticated %}
+    <script>
+        (() => {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            if (!csrfToken || !window.fetch || !window.Intl || !window.Intl.DateTimeFormat) {
+                return;
+            }
+
+            const resolved = Intl.DateTimeFormat().resolvedOptions();
+            const timezone = typeof resolved.timeZone === 'string' ? resolved.timeZone.trim() : '';
+            if (!timezone) {
+                return;
+            }
+
+            const storageKey = 'synapy_last_synced_timezone';
+            try {
+                const lastSynced = window.localStorage.getItem(storageKey);
+                if (lastSynced === timezone) {
+                    return;
+                }
+            } catch (err) {
+                // localStorage may be unavailable in strict privacy modes.
+            }
+
+            fetch('/api/user/timezone', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({ timezone }),
+            })
+                .then((response) => {
+                    if (!response.ok) {
+                        return null;
+                    }
+                    try {
+                        window.localStorage.setItem(storageKey, timezone);
+                    } catch (err) {
+                        // no-op
+                    }
+                    return null;
+                })
+                .catch(() => {
+                    // Ignore sync failures and retry on the next page load.
+                });
+        })();
+    </script>
+    {% endif %}
 
     {% block scripts %}{% endblock %}
 </body>

@@ -75,6 +75,19 @@ app.config['RATE_LIMIT_UPGRADE_CHECKOUT'] = os.environ.get(
     'RATE_LIMIT_UPGRADE_CHECKOUT',
     '10 per minute' if is_production else '100 per minute',
 )
+app.config['RATE_LIMIT_SESSION_START'] = os.environ.get(
+    'RATE_LIMIT_SESSION_START',
+    '120 per minute' if is_production else '1000 per minute',
+)
+app.config['RATE_LIMIT_SESSION_END'] = os.environ.get(
+    'RATE_LIMIT_SESSION_END',
+    '120 per minute' if is_production else '1000 per minute',
+)
+app.config['RATE_LIMIT_TIMEZONE_SYNC'] = os.environ.get(
+    'RATE_LIMIT_TIMEZONE_SYNC',
+    '30 per minute' if is_production else '300 per minute',
+)
+app.config['STREAK_TIMEZONE'] = os.environ.get('STREAK_TIMEZONE', '').strip()
 app.config['BILLING_PROVIDER'] = os.environ.get('BILLING_PROVIDER', 'dev').strip().lower()
 app.config['STRIPE_SECRET_KEY'] = os.environ.get('STRIPE_SECRET_KEY', '')
 app.config['STRIPE_PRICE_ID'] = os.environ.get('STRIPE_PRICE_ID', '')

@@ -1,9 +1,12 @@
 import unittest
 import uuid
 import re
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 from app import app
 from database import db, User, GameType, GameSession
+from routes import update_user_streak
 
 
 class SessionPayloadValidationTests(unittest.TestCase):
@@ -64,6 +67,8 @@ class SessionPayloadValidationTests(unittest.TestCase):
     def setUp(self):
         self.ctx = self.app.app_context()
         self.ctx.push()
+        self.original_streak_timezone = self.app.config.get('STREAK_TIMEZONE')
+        self.app.config['STREAK_TIMEZONE'] = 'UTC'
 
         suffix = uuid.uuid4().hex[:10]
         self.user = User(
@@ -92,6 +97,7 @@ class SessionPayloadValidationTests(unittest.TestCase):
         GameSession.query.filter_by(user_id=self.user.id).delete(synchronize_session=False)
         User.query.filter_by(id=self.user.id).delete(synchronize_session=False)
         db.session.commit()
+        self.app.config['STREAK_TIMEZONE'] = self.original_streak_timezone
         self.ctx.pop()
 
     def _start_free_session(self):
@@ -149,6 +155,260 @@ class SessionPayloadValidationTests(unittest.TestCase):
             json={'game_slug': self.free_slug, 'difficulty': 1},
         )
         self.assertEqual(response.status_code, 400)
+
+    def test_end_initializes_streak_on_first_completed_session(self):
+        self.user.current_streak = 0
+        self.user.longest_streak = 0
+        self.user.last_played = None
+        db.session.commit()
+
+        session_id = self._start_free_session()
+        response = self.client.post(
+            f'/api/session/{session_id}/end',
+            json=self._valid_end_payload(),
+            headers=self._csrf_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json() or {}
+        self.assertEqual(payload.get('current_streak'), 1)
+        self.assertEqual(payload.get('longest_streak'), 1)
+
+        refreshed = db.session.get(User, self.user.id)
+        self.assertEqual(refreshed.current_streak, 1)
+        self.assertEqual(refreshed.longest_streak, 1)
+        self.assertIsNotNone(refreshed.last_played)
+
+    def test_end_same_day_keeps_streak_count(self):
+        self.user.current_streak = 3
+        self.user.longest_streak = 5
+        self.user.last_played = datetime.utcnow()
+        db.session.commit()
+
+        session_id = self._start_free_session()
+        response = self.client.post(
+            f'/api/session/{session_id}/end',
+            json=self._valid_end_payload(),
+            headers=self._csrf_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json() or {}
+        self.assertEqual(payload.get('current_streak'), 3)
+        self.assertEqual(payload.get('longest_streak'), 5)
+
+    def test_end_next_day_increments_streak(self):
+        self.user.current_streak = 3
+        self.user.longest_streak = 4
+        self.user.last_played = datetime.utcnow() - timedelta(days=1, minutes=5)
+        db.session.commit()
+
+        session_id = self._start_free_session()
+        response = self.client.post(
+            f'/api/session/{session_id}/end',
+            json=self._valid_end_payload(),
+            headers=self._csrf_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json() or {}
+        self.assertEqual(payload.get('current_streak'), 4)
+        self.assertEqual(payload.get('longest_streak'), 4)
+
+    def test_end_missed_day_resets_streak(self):
+        self.user.current_streak = 6
+        self.user.longest_streak = 7
+        self.user.last_played = datetime.utcnow() - timedelta(days=3)
+        db.session.commit()
+
+        session_id = self._start_free_session()
+        response = self.client.post(
+            f'/api/session/{session_id}/end',
+            json=self._valid_end_payload(),
+            headers=self._csrf_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json() or {}
+        self.assertEqual(payload.get('current_streak'), 1)
+        self.assertEqual(payload.get('longest_streak'), 7)
+
+    def test_user_timezone_sync_accepts_valid_timezone(self):
+        response = self.client.post(
+            '/api/user/timezone',
+            json={'timezone': 'UTC'},
+            headers=self._csrf_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json() or {}
+        self.assertEqual(payload.get('timezone'), 'UTC')
+
+        refreshed = db.session.get(User, self.user.id)
+        self.assertEqual(refreshed.timezone, 'UTC')
+
+    def test_user_timezone_sync_rejects_invalid_timezone(self):
+        response = self.client.post(
+            '/api/user/timezone',
+            json={'timezone': 'Not/ARealTimezone'},
+            headers=self._csrf_headers(),
+        )
+        self.assertEqual(response.status_code, 400)
+        payload = response.get_json() or {}
+        self.assertIn('timezone', payload.get('error', ''))
+
+    def test_update_user_streak_prefers_user_timezone_over_app_timezone(self):
+        self.app.config['STREAK_TIMEZONE'] = 'UTC'
+        self.user.timezone = 'Pacific/Kiritimati'
+        self.user.current_streak = 2
+        self.user.longest_streak = 2
+        self.user.last_played = datetime(2026, 1, 1, 23, 30, 0)
+        db.session.commit()
+
+        # In UTC this crosses into the next day, but in UTC+14 it does not.
+        with patch('routes.ZoneInfo', return_value=timezone(timedelta(hours=14))):
+            streak = update_user_streak(self.user, datetime(2026, 1, 2, 0, 30, 0))
+
+        self.assertEqual(streak.get('current_streak'), 2)
+        self.assertEqual(streak.get('longest_streak'), 2)
+
+    def test_start_rate_limit_enforced(self):
+        original_limit = self.app.config.get('RATE_LIMIT_SESSION_START')
+        self.app.config['RATE_LIMIT_SESSION_START'] = '2 per minute'
+        remote_addr = f'198.51.100.{int(uuid.uuid4().hex[:2], 16) % 200 + 1}'
+        self.user.lives_remaining = 8
+        self.user.lives_last_updated_at = datetime.utcnow()
+        db.session.commit()
+
+        try:
+            for _ in range(2):
+                response = self.client.post(
+                    '/api/session/start',
+                    json={'game_slug': self.free_slug, 'difficulty': 1},
+                    headers=self._csrf_headers(),
+                    environ_overrides={'REMOTE_ADDR': remote_addr},
+                )
+                self.assertEqual(response.status_code, 200)
+
+            response = self.client.post(
+                '/api/session/start',
+                json={'game_slug': self.free_slug, 'difficulty': 1},
+                headers=self._csrf_headers(),
+                environ_overrides={'REMOTE_ADDR': remote_addr},
+            )
+            self.assertEqual(response.status_code, 429)
+        finally:
+            self.app.config['RATE_LIMIT_SESSION_START'] = original_limit
+
+    def test_end_rate_limit_enforced(self):
+        original_limit = self.app.config.get('RATE_LIMIT_SESSION_END')
+        self.app.config['RATE_LIMIT_SESSION_END'] = '2 per minute'
+        remote_addr = f'203.0.113.{int(uuid.uuid4().hex[:2], 16) % 200 + 1}'
+
+        try:
+            session_ids = []
+            for _ in range(3):
+                response = self.client.post(
+                    '/api/session/start',
+                    json={'game_slug': self.free_slug, 'difficulty': 1},
+                    headers=self._csrf_headers(),
+                    environ_overrides={'REMOTE_ADDR': f'198.18.0.{int(uuid.uuid4().hex[:2], 16) % 200 + 1}'},
+                )
+                self.assertEqual(response.status_code, 200)
+                session_ids.append((response.get_json() or {}).get('session_id'))
+
+            for session_id in session_ids[:2]:
+                response = self.client.post(
+                    f'/api/session/{session_id}/end',
+                    json=self._valid_end_payload(),
+                    headers=self._csrf_headers(),
+                    environ_overrides={'REMOTE_ADDR': remote_addr},
+                )
+                self.assertEqual(response.status_code, 200)
+
+            response = self.client.post(
+                f'/api/session/{session_ids[2]}/end',
+                json=self._valid_end_payload(),
+                headers=self._csrf_headers(),
+                environ_overrides={'REMOTE_ADDR': remote_addr},
+            )
+            self.assertEqual(response.status_code, 429)
+        finally:
+            self.app.config['RATE_LIMIT_SESSION_END'] = original_limit
+
+    def test_start_consumes_one_life(self):
+        self.user.lives_remaining = 8
+        self.user.lives_last_updated_at = datetime.utcnow()
+        db.session.commit()
+
+        response = self.client.post(
+            '/api/session/start',
+            json={'game_slug': self.free_slug, 'difficulty': 1},
+            headers=self._csrf_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+
+        payload = response.get_json() or {}
+        self.assertEqual(payload.get('life_cost'), 1)
+        self.assertEqual(payload.get('lives_remaining'), 7)
+
+        refreshed = db.session.get(User, self.user.id)
+        self.assertEqual(refreshed.lives_remaining, 7)
+
+    def test_start_from_full_sets_30_minute_refill_clock(self):
+        self.user.lives_remaining = 8
+        self.user.lives_last_updated_at = datetime.utcnow() - timedelta(hours=6)
+        db.session.commit()
+
+        response = self.client.post(
+            '/api/session/start',
+            json={'game_slug': self.free_slug, 'difficulty': 1},
+            headers=self._csrf_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+
+        payload = response.get_json() or {}
+        self.assertEqual(payload.get('lives_remaining'), 7)
+        seconds_until_next = int(payload.get('seconds_until_next_life') or 0)
+        self.assertGreaterEqual(seconds_until_next, 1790)
+        self.assertLessEqual(seconds_until_next, 1800)
+
+    def test_start_rejects_when_no_lives_available(self):
+        self.user.lives_remaining = 0
+        self.user.lives_last_updated_at = datetime.utcnow()
+        db.session.commit()
+
+        response = self.client.post(
+            '/api/session/start',
+            json={'game_slug': self.free_slug, 'difficulty': 1},
+            headers=self._csrf_headers(),
+        )
+        self.assertEqual(response.status_code, 403)
+        payload = response.get_json() or {}
+        self.assertIn('lives', payload.get('error', '').lower())
+        self.assertEqual(payload.get('lives_remaining'), 0)
+
+    def test_start_regenerates_life_after_30_minutes(self):
+        self.user.lives_remaining = 0
+        self.user.lives_last_updated_at = datetime.utcnow() - timedelta(minutes=31)
+        db.session.commit()
+
+        response = self.client.post(
+            '/api/session/start',
+            json={'game_slug': self.free_slug, 'difficulty': 1},
+            headers=self._csrf_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json() or {}
+        self.assertEqual(payload.get('lives_remaining'), 0)
+
+    def test_problems_page_shows_life_cost_column_for_authenticated_user(self):
+        self.user.lives_remaining = 6
+        self.user.lives_last_updated_at = datetime.utcnow()
+        db.session.commit()
+
+        response = self.client.get('/problems')
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertNotIn('<th>Status</th>', html)
+        self.assertIn('<th>Cost</th>', html)
+        self.assertIn('lives-row', html)
+        self.assertIn('sigma-cost', html)
 
     def test_start_premium_gating_matches_end_premium_gating(self):
         premium_start = self.client.post(
