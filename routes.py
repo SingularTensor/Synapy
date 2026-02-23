@@ -1,8 +1,11 @@
 import math
 import os
 from functools import wraps
+import click
 from flask import render_template, request, jsonify, redirect, url_for, flash, abort, current_app
+from flask.cli import AppGroup
 from flask_login import login_user, logout_user, login_required, current_user
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 
 from app import app, limiter, csrf
@@ -160,9 +163,26 @@ def get_billing_provider():
     return 'dev'
 
 
+def _stripe_get(payload_obj, key, default=None):
+    if payload_obj is None:
+        return default
+    if isinstance(payload_obj, dict):
+        return payload_obj.get(key, default)
+    getter = getattr(payload_obj, 'get', None)
+    if callable(getter):
+        try:
+            return getter(key, default)
+        except TypeError:
+            value = getter(key)
+            return default if value is None else value
+    return getattr(payload_obj, key, default)
+
+
 def _extract_stripe_id(raw_value):
     if isinstance(raw_value, dict):
         raw_value = raw_value.get('id')
+    elif hasattr(raw_value, 'id'):
+        raw_value = getattr(raw_value, 'id')
     if raw_value is None:
         return None
     value = str(raw_value).strip()
@@ -170,15 +190,15 @@ def _extract_stripe_id(raw_value):
 
 
 def _extract_stripe_customer_id(payload_obj):
-    return _extract_stripe_id(payload_obj.get('customer'))
+    return _extract_stripe_id(_stripe_get(payload_obj, 'customer'))
 
 
 def _extract_stripe_subscription_id(payload_obj, *, allow_object_id=False):
-    subscription_id = _extract_stripe_id(payload_obj.get('subscription'))
+    subscription_id = _extract_stripe_id(_stripe_get(payload_obj, 'subscription'))
     if subscription_id:
         return subscription_id
     if allow_object_id:
-        return _extract_stripe_id(payload_obj.get('id'))
+        return _extract_stripe_id(_stripe_get(payload_obj, 'id'))
     return None
 
 
@@ -408,6 +428,200 @@ def _process_stripe_event(event):
 
     if event_type == 'invoice.payment_failed':
         _handle_stripe_invoice_payment_failed(event_object)
+
+
+def _normalize_stripe_subscription_status(status):
+    return (str(status or '').strip().lower() or 'inactive')
+
+
+def _subscription_created_ts(subscription_obj):
+    created = _stripe_get(subscription_obj, 'created', 0)
+    try:
+        return int(created)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _pick_reconcile_subscription(subscription_rows):
+    if not subscription_rows:
+        return None
+    active_rows = [
+        row
+        for row in subscription_rows
+        if _is_stripe_subscription_active(
+            _normalize_stripe_subscription_status(_stripe_get(row, 'status'))
+        )
+    ]
+    candidates = active_rows or subscription_rows
+    return max(candidates, key=_subscription_created_ts)
+
+
+def _get_stripe_invalid_request_error(stripe_module):
+    return getattr(getattr(stripe_module, 'error', None), 'InvalidRequestError', Exception)
+
+
+def _fetch_reconcile_subscription_for_user(stripe_module, user):
+    invalid_request_error = _get_stripe_invalid_request_error(stripe_module)
+    subscription_obj = None
+
+    if user.stripe_subscription_id:
+        try:
+            subscription_obj = stripe_module.Subscription.retrieve(user.stripe_subscription_id)
+        except invalid_request_error as exc:
+            if 'No such subscription' not in str(exc):
+                raise
+
+    if subscription_obj is not None:
+        return subscription_obj
+
+    if not user.stripe_customer_id:
+        return None
+
+    subscription_list = stripe_module.Subscription.list(
+        customer=user.stripe_customer_id,
+        status='all',
+        limit=20,
+    )
+    subscription_rows = _stripe_get(subscription_list, 'data', []) or []
+    if not isinstance(subscription_rows, list):
+        try:
+            subscription_rows = list(subscription_rows)
+        except TypeError:
+            subscription_rows = []
+
+    return _pick_reconcile_subscription(subscription_rows)
+
+
+def _build_reconciled_user_state(stripe_module, user):
+    subscription_obj = _fetch_reconcile_subscription_for_user(stripe_module, user)
+    if subscription_obj is None:
+        return {
+            'is_premium': False,
+            'billing_status': 'inactive',
+            'stripe_customer_id': user.stripe_customer_id,
+            'stripe_subscription_id': None,
+        }
+
+    subscription_status = _normalize_stripe_subscription_status(
+        _stripe_get(subscription_obj, 'status')
+    )
+    return {
+        'is_premium': _is_stripe_subscription_active(subscription_status),
+        'billing_status': subscription_status,
+        'stripe_customer_id': _extract_stripe_customer_id(subscription_obj) or user.stripe_customer_id,
+        'stripe_subscription_id': (
+            _extract_stripe_subscription_id(subscription_obj, allow_object_id=True)
+            or user.stripe_subscription_id
+        ),
+    }
+
+
+def _diff_user_billing_state(user, target_state):
+    fields = (
+        'is_premium',
+        'billing_status',
+        'stripe_customer_id',
+        'stripe_subscription_id',
+    )
+    changes = {}
+    for field_name in fields:
+        old_value = getattr(user, field_name)
+        new_value = target_state[field_name]
+        if old_value != new_value:
+            changes[field_name] = {'old': old_value, 'new': new_value}
+    return changes
+
+
+def _apply_reconciled_user_state(user, target_state):
+    user.is_premium = bool(target_state['is_premium'])
+    user.billing_status = target_state['billing_status']
+    user.stripe_customer_id = target_state['stripe_customer_id']
+    user.stripe_subscription_id = target_state['stripe_subscription_id']
+
+
+billing_cli = AppGroup('billing')
+
+
+@billing_cli.command('reconcile')
+@click.option(
+    '--user-id',
+    'user_ids',
+    type=int,
+    multiple=True,
+    help='Reconcile only the specified user ID(s).',
+)
+@click.option(
+    '--limit',
+    type=click.IntRange(min=1, max=5000),
+    default=200,
+    show_default=True,
+    help='Maximum users to scan when no --user-id values are provided.',
+)
+@click.option('--dry-run', is_flag=True, help='Show planned changes without writing to the database.')
+def billing_reconcile_command(user_ids, limit, dry_run):
+    provider = get_billing_provider()
+    if provider != 'stripe':
+        click.echo(f'Skipping reconcile: BILLING_PROVIDER={provider} (expected stripe).')
+        return
+
+    stripe_secret_key = app.config.get('STRIPE_SECRET_KEY', '').strip()
+    if not stripe_secret_key:
+        raise click.ClickException('STRIPE_SECRET_KEY is required for billing reconciliation.')
+
+    try:
+        import stripe  # type: ignore
+    except ImportError as exc:
+        raise click.ClickException('Stripe SDK is not installed.') from exc
+
+    stripe.api_key = stripe_secret_key
+
+    if user_ids:
+        users = User.query.filter(User.id.in_(set(user_ids))).order_by(User.id.asc()).all()
+    else:
+        users = User.query.filter(
+            or_(
+                User.is_premium.is_(True),
+                User.billing_status != 'inactive',
+                User.stripe_customer_id.isnot(None),
+                User.stripe_subscription_id.isnot(None),
+            )
+        ).order_by(User.id.asc()).limit(limit).all()
+
+    if not users:
+        click.echo('No users matched billing reconciliation criteria.')
+        return
+
+    updated = 0
+    unchanged = 0
+    errors = 0
+    for user in users:
+        try:
+            target_state = _build_reconciled_user_state(stripe, user)
+            changes = _diff_user_billing_state(user, target_state)
+            if not changes:
+                unchanged += 1
+                continue
+
+            updated += 1
+            changed_fields = ', '.join(sorted(changes.keys()))
+            click.echo(f'user_id={user.id} reconcile {changed_fields}')
+            if not dry_run:
+                _apply_reconciled_user_state(user, target_state)
+        except Exception as exc:
+            errors += 1
+            current_app.logger.exception('Billing reconcile failed for user_id=%s', user.id)
+            click.echo(f'user_id={user.id} reconcile_error={exc}')
+
+    if not dry_run:
+        db.session.commit()
+
+    click.echo(
+        f'reconcile_complete scanned={len(users)} '
+        f'updated={updated} unchanged={unchanged} errors={errors} dry_run={str(dry_run).lower()}'
+    )
+
+
+app.cli.add_command(billing_cli)
 
 
 def parse_int_payload_field(
