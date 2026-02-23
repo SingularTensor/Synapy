@@ -5,7 +5,7 @@ from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
-from database import db, User
+from database import db, User, ensure_runtime_schema_compatibility
 from datetime import timedelta
 import os
 
@@ -81,6 +81,8 @@ app.config['STRIPE_PRICE_ID'] = os.environ.get('STRIPE_PRICE_ID', '')
 app.config['STRIPE_WEBHOOK_SECRET'] = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 
 db.init_app(app)
+with app.app_context():
+    ensure_runtime_schema_compatibility()
 migrate = Migrate(app, db)
 csrf = CSRFProtect(app)
 limiter = Limiter(

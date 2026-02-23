@@ -18,6 +18,9 @@ class User(db.Model, UserMixin):
     is_admin = db.Column(db.Boolean, default=False)
     is_recruiter = db.Column(db.Boolean, default=False)
     is_premium = db.Column(db.Boolean, default=False, nullable=False, server_default=text('0'))
+    stripe_customer_id = db.Column(db.String(255), unique=True, index=True)
+    stripe_subscription_id = db.Column(db.String(255), unique=True, index=True)
+    billing_status = db.Column(db.String(32), default='inactive', nullable=False, server_default=text("'inactive'"))
     profile_public = db.Column(db.Boolean, default=False)
 
     total_xp = db.Column(db.Integer, default=0)
@@ -137,6 +140,14 @@ class Leaderboard(db.Model):
     )
 
 
+class StripeWebhookEvent(db.Model):
+    __tablename__ = 'stripe_webhook_events'
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    event_type = db.Column(db.String(120), nullable=False)
+    processed_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
 def ensure_runtime_schema_compatibility():
     """
     Apply minimal additive schema patches for local/dev environments that
@@ -145,6 +156,10 @@ def ensure_runtime_schema_compatibility():
     engine = db.engine
     inspector = inspect(engine)
     table_names = set(inspector.get_table_names())
+    # When Alembic is managing the schema, rely on migrations instead of
+    # runtime DDL so versioned upgrades remain deterministic.
+    if 'alembic_version' in table_names:
+        return
     if 'users' not in table_names:
         return
 
@@ -152,6 +167,37 @@ def ensure_runtime_schema_compatibility():
     statements = []
     if 'is_premium' not in user_columns:
         statements.append('ALTER TABLE users ADD COLUMN is_premium BOOLEAN NOT NULL DEFAULT 0')
+    if 'stripe_customer_id' not in user_columns:
+        statements.append('ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255)')
+    if 'stripe_subscription_id' not in user_columns:
+        statements.append('ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(255)')
+    if 'billing_status' not in user_columns:
+        statements.append("ALTER TABLE users ADD COLUMN billing_status VARCHAR(32) NOT NULL DEFAULT 'inactive'")
+
+    if 'stripe_webhook_events' not in table_names:
+        statements.append(
+            '''
+            CREATE TABLE stripe_webhook_events (
+                id INTEGER PRIMARY KEY,
+                event_id VARCHAR(255) NOT NULL UNIQUE,
+                event_type VARCHAR(120) NOT NULL,
+                processed_at DATETIME NOT NULL
+            )
+            '''
+        )
+
+    statements.append(
+        'CREATE UNIQUE INDEX IF NOT EXISTS ix_users_stripe_customer_id '
+        'ON users (stripe_customer_id)'
+    )
+    statements.append(
+        'CREATE UNIQUE INDEX IF NOT EXISTS ix_users_stripe_subscription_id '
+        'ON users (stripe_subscription_id)'
+    )
+    statements.append(
+        'CREATE UNIQUE INDEX IF NOT EXISTS ix_stripe_webhook_events_event_id '
+        'ON stripe_webhook_events (event_id)'
+    )
 
     if not statements:
         return

@@ -3,9 +3,18 @@ import os
 from functools import wraps
 from flask import render_template, request, jsonify, redirect, url_for, flash, abort, current_app
 from flask_login import login_user, logout_user, login_required, current_user
+from sqlalchemy.exc import IntegrityError
 
 from app import app, limiter, csrf
-from database import db, User, GameType, GameSession, CognitiveScore, COGNITIVE_DOMAINS
+from database import (
+    db,
+    User,
+    GameType,
+    GameSession,
+    CognitiveScore,
+    COGNITIVE_DOMAINS,
+    StripeWebhookEvent,
+)
 
 COGNITIVE_WEIGHT_VERSION = '2026-02-22-v4'
 COGNITIVE_WEIGHT_TOTAL = 5.0
@@ -133,7 +142,6 @@ def user_has_premium_access(user):
         return False
     if getattr(user, 'is_admin', False):
         return True
-    # Premium flag is not yet migrated into the User model; default deny.
     return bool(getattr(user, 'is_premium', False))
 
 
@@ -152,13 +160,105 @@ def get_billing_provider():
     return 'dev'
 
 
-def set_user_premium_state(user_id, is_premium):
+def _extract_stripe_id(raw_value):
+    if isinstance(raw_value, dict):
+        raw_value = raw_value.get('id')
+    if raw_value is None:
+        return None
+    value = str(raw_value).strip()
+    return value or None
+
+
+def _extract_stripe_customer_id(payload_obj):
+    return _extract_stripe_id(payload_obj.get('customer'))
+
+
+def _extract_stripe_subscription_id(payload_obj, *, allow_object_id=False):
+    subscription_id = _extract_stripe_id(payload_obj.get('subscription'))
+    if subscription_id:
+        return subscription_id
+    if allow_object_id:
+        return _extract_stripe_id(payload_obj.get('id'))
+    return None
+
+
+def _is_stripe_subscription_active(status):
+    return status in {'active', 'trialing'}
+
+
+def _find_user_for_billing_sync(*, user_id=None, stripe_customer_id=None, stripe_subscription_id=None):
+    if user_id is not None:
+        try:
+            user = db.session.get(User, int(user_id))
+        except (TypeError, ValueError):
+            user = None
+        if user is not None:
+            return user
+
+    if stripe_subscription_id:
+        user = User.query.filter_by(stripe_subscription_id=stripe_subscription_id).first()
+        if user is not None:
+            return user
+
+    if stripe_customer_id:
+        user = User.query.filter_by(stripe_customer_id=stripe_customer_id).first()
+        if user is not None:
+            return user
+
+    return None
+
+
+def _apply_user_billing_state(
+    user,
+    *,
+    is_premium=None,
+    billing_status=None,
+    stripe_customer_id=None,
+    stripe_subscription_id=None,
+):
+    if stripe_customer_id:
+        user.stripe_customer_id = stripe_customer_id
+    if stripe_subscription_id:
+        user.stripe_subscription_id = stripe_subscription_id
+    if is_premium is not None:
+        user.is_premium = bool(is_premium)
+    if billing_status:
+        user.billing_status = billing_status
+
+
+def set_user_premium_state(
+    user_id,
+    is_premium,
+    *,
+    billing_status=None,
+    stripe_customer_id=None,
+    stripe_subscription_id=None,
+    commit=True,
+):
     user = db.session.get(User, int(user_id))
     if user is None:
         return None
-    user.is_premium = bool(is_premium)
-    db.session.commit()
+    _apply_user_billing_state(
+        user,
+        is_premium=is_premium,
+        billing_status=billing_status,
+        stripe_customer_id=stripe_customer_id,
+        stripe_subscription_id=stripe_subscription_id,
+    )
+    if commit:
+        db.session.commit()
     return user
+
+
+def _claim_stripe_event(event_id, event_type):
+    event_row = StripeWebhookEvent(event_id=event_id, event_type=event_type)
+    db.session.add(event_row)
+    try:
+        db.session.flush()
+    except IntegrityError:
+        db.session.rollback()
+        return False
+    return True
 
 
 def _create_stripe_checkout_session(user):
@@ -218,8 +318,96 @@ def _sync_stripe_checkout_session_for_current_user(session_id, expected_user_id)
     if payment_status not in {'paid', 'no_payment_required'} and status != 'complete':
         return False
 
-    set_user_premium_state(expected_user_id, True)
+    set_user_premium_state(
+        expected_user_id,
+        True,
+        billing_status='active',
+        stripe_customer_id=_extract_stripe_customer_id(session_obj),
+        stripe_subscription_id=_extract_stripe_subscription_id(session_obj),
+    )
     return True
+
+
+def _handle_stripe_checkout_completed(session_obj):
+    user_id = _extract_stripe_user_id(session_obj)
+    if user_id is None:
+        return
+
+    payment_status = (session_obj.get('payment_status') or '').lower()
+    status = (session_obj.get('status') or '').lower()
+    if payment_status not in {'paid', 'no_payment_required'} and status != 'complete':
+        return
+
+    set_user_premium_state(
+        user_id,
+        True,
+        billing_status='active',
+        stripe_customer_id=_extract_stripe_customer_id(session_obj),
+        stripe_subscription_id=_extract_stripe_subscription_id(session_obj),
+        commit=False,
+    )
+
+
+def _handle_stripe_subscription_event(subscription_obj):
+    subscription_status = (subscription_obj.get('status') or '').strip().lower()
+    stripe_customer_id = _extract_stripe_customer_id(subscription_obj)
+    stripe_subscription_id = _extract_stripe_subscription_id(
+        subscription_obj, allow_object_id=True
+    )
+    user_id = _extract_stripe_user_id(subscription_obj)
+
+    user = _find_user_for_billing_sync(
+        user_id=user_id,
+        stripe_customer_id=stripe_customer_id,
+        stripe_subscription_id=stripe_subscription_id,
+    )
+    if user is None:
+        return
+
+    _apply_user_billing_state(
+        user,
+        is_premium=_is_stripe_subscription_active(subscription_status),
+        billing_status=subscription_status or 'inactive',
+        stripe_customer_id=stripe_customer_id,
+        stripe_subscription_id=stripe_subscription_id,
+    )
+
+
+def _handle_stripe_invoice_payment_failed(invoice_obj):
+    stripe_customer_id = _extract_stripe_customer_id(invoice_obj)
+    stripe_subscription_id = _extract_stripe_subscription_id(invoice_obj)
+    user = _find_user_for_billing_sync(
+        stripe_customer_id=stripe_customer_id,
+        stripe_subscription_id=stripe_subscription_id,
+    )
+    if user is None:
+        return
+
+    _apply_user_billing_state(
+        user,
+        is_premium=False,
+        billing_status='payment_failed',
+        stripe_customer_id=stripe_customer_id,
+        stripe_subscription_id=stripe_subscription_id,
+    )
+
+
+def _process_stripe_event(event):
+    event_type = (event.get('type') or '').strip()
+    event_object = event.get('data', {}).get('object', {})
+    if not isinstance(event_object, dict):
+        event_object = {}
+
+    if event_type == 'checkout.session.completed':
+        _handle_stripe_checkout_completed(event_object)
+        return
+
+    if event_type in {'customer.subscription.updated', 'customer.subscription.deleted'}:
+        _handle_stripe_subscription_event(event_object)
+        return
+
+    if event_type == 'invoice.payment_failed':
+        _handle_stripe_invoice_payment_failed(event_object)
 
 
 def parse_int_payload_field(
@@ -567,11 +755,23 @@ def stripe_webhook():
     except stripe.error.SignatureVerificationError:
         return jsonify({'error': 'Invalid signature'}), 400
 
-    if event.get('type') == 'checkout.session.completed':
-        session_obj = event.get('data', {}).get('object', {})
-        user_id = _extract_stripe_user_id(session_obj)
-        if user_id is not None:
-            set_user_premium_state(user_id, True)
+    event_id = (event.get('id') or '').strip()
+    event_type = (event.get('type') or '').strip()
+    if not event_id:
+        return jsonify({'error': 'Stripe event id is required'}), 400
+    if not event_type:
+        return jsonify({'error': 'Stripe event type is required'}), 400
+
+    if not _claim_stripe_event(event_id, event_type):
+        return jsonify({'received': True, 'duplicate': True})
+
+    try:
+        _process_stripe_event(event)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception('Failed to process Stripe webhook event %s.', event_id)
+        return jsonify({'error': 'Stripe webhook processing failed'}), 500
 
     return jsonify({'received': True})
 
