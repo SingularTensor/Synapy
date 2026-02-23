@@ -18,6 +18,7 @@ By evaluating users' core cognitive fitness (working memory, processing speed, s
 When working on this codebase, **always read these documents first** to understand the architecture and design philosophy:
 - `AGENTS.md`: Mandatory safety rails, cognitive weight contract, and task preflight checks.
 - `docs/AGENT_PLAYBOOK.md`: Operational playbook to avoid common agent mistakes in auth, scoring, and dashboard work.
+- `docs/BILLING_RUNBOOK.md`: Stripe webhook setup, billing incident triage, and reconcile operations.
 - `CLAUDE.md`: Contains the overall project vision, technology stack, and standard commands.
 - `docs/PUZZLE_DESIGN.md`: Rules for how assessment games should mechanics, data tracking, and aesthetics.
 
