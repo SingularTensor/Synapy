@@ -68,6 +68,36 @@
         letter-spacing: 0.02em;
     }
 
+    .streak-balance {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 6px;
+        padding: 6px 8px;
+        margin-left: 10px;
+        margin-top: 0;
+        border-radius: 8px;
+        background: transparent;
+        border: none;
+        text-align: left;
+    }
+
+    .streak-icon {
+        width: 39.04px;
+        height: 39.04px;
+        flex-shrink: 0;
+        color: #22c55e;
+        filter: drop-shadow(0 0 5px rgba(34, 197, 94, 0.45));
+    }
+
+    .streak-count {
+        color: #4ade80;
+        font-weight: 700;
+        font-size: 2.1rem;
+        letter-spacing: 0.02em;
+        line-height: 1;
+    }
+
     .lives-balance {
         display: flex;
         justify-content: flex-start;
@@ -210,6 +240,72 @@
             transform: scale(1.1);
             opacity: 1;
             filter: drop-shadow(0 0 2px currentColor);
+        }
+    }
+
+    .electric-flicker {
+        transform-origin: bottom center;
+        animation: e-flicker 0.8s infinite alternate ease-in-out;
+    }
+
+    @keyframes e-flicker {
+        0% {
+            transform: scaleY(0.9) skewX(-2deg);
+            opacity: 0.85;
+            filter: drop-shadow(0 0 4px currentColor);
+        }
+
+        100% {
+            transform: scaleY(1.05) skewX(2deg);
+            opacity: 1;
+            filter: drop-shadow(0 0 8px currentColor);
+        }
+    }
+
+    .electric-surge-flow {
+        stroke-dasharray: 4 6;
+        animation: e-flow 3s linear infinite reverse;
+    }
+
+    @keyframes e-flow {
+        100% {
+            stroke-dashoffset: 20;
+        }
+    }
+
+    .e-spark-float {
+        transform-origin: center;
+        opacity: 0;
+        animation: spark-drift 4s infinite ease-out;
+    }
+
+    .e-spark-delay-1 {
+        animation-delay: 1.5s;
+    }
+
+    .e-spark-delay-2 {
+        animation-delay: 3s;
+    }
+
+    @keyframes spark-drift {
+        0% {
+            transform: translate(0, 0) scale(0.5);
+            opacity: 0;
+            filter: drop-shadow(0 0 2px currentColor);
+        }
+
+        20% {
+            opacity: 0.9;
+            transform: translate(-2px, -6px) scale(1.1);
+        }
+
+        80% {
+            opacity: 0.9;
+        }
+
+        100% {
+            transform: translate(4px, -24px) scale(0);
+            opacity: 0;
         }
     }
 
@@ -477,12 +573,14 @@
             <div class="lives-balance">
                 <div class="lives-row">
                     <span class="life-hover-zone">
-                        <span class="life-heart {{ 'life-heart-active' if lives_remaining > 0 else 'life-heart-spent' }}">
+                        <span
+                            class="life-heart {{ 'life-heart-active' if lives_remaining > 0 else 'life-heart-spent' }}">
                             <svg class="perceptron-svg" viewBox="0 0 24 24" fill="none"
                                 xmlns="http://www.w3.org/2000/svg">
                                 <!-- Sigma Symbol -->
                                 <text x="12" y="18" font-family="sans-serif" font-size="18" font-weight="bold"
-                                    fill="currentColor" text-anchor="middle" class="p-pulse" opacity="0.95">&#963;</text>
+                                    fill="currentColor" text-anchor="middle" class="p-pulse"
+                                    opacity="0.95">&#963;</text>
                             </svg>
                         </span>
                         <div class="perceptron-popover" id="perceptron-popover">
@@ -493,9 +591,8 @@
                                     class="perceptron-unit {{ 'perceptron-unit-active' if i < lives_remaining else 'perceptron-unit-spent' }}">
                                     <svg class="perceptron-mini" viewBox="0 0 24 24" fill="none"
                                         xmlns="http://www.w3.org/2000/svg">
-                                        <text x="12" y="18" font-family="sans-serif" font-size="18"
-                                            font-weight="bold" fill="currentColor" text-anchor="middle"
-                                            opacity="0.95">&#963;</text>
+                                        <text x="12" y="18" font-family="sans-serif" font-size="18" font-weight="bold"
+                                            fill="currentColor" text-anchor="middle" opacity="0.95">&#963;</text>
                                     </svg>
                                 </span>
                                 {% endfor %}
@@ -508,104 +605,126 @@
                     data-seconds-until-next-life="{{ seconds_until_next_life }}"
                     data-lives-remaining="{{ lives_remaining }}" data-lives-max="{{ lives_max }}">
                 </div>
-                </div>
-
-                <div class="neuron-balance">
-                    <svg class="neuron-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"
-                        style="overflow: visible;">
-                        <style>
-                            .n-core-pulse {
-                                animation: n-core-anim 2.5s ease-in-out infinite alternate;
-                                transform-origin: center;
-                            }
-
-                            .n-float {
-                                animation: n-float-anim 4s ease-in-out infinite alternate;
-                            }
-
-                            .n-flow {
-                                stroke-dasharray: 4 6;
-                                animation: n-flow-anim 12s linear infinite;
-                            }
-
-                            @keyframes n-core-anim {
-                                0% {
-                                    filter: drop-shadow(0 0 2px #d8b4fe);
-                                    transform: scale(0.9);
-                                }
-
-                                100% {
-                                    filter: drop-shadow(0 0 6px #e879f9);
-                                    transform: scale(1.1);
-                                }
-                            }
-
-                            @keyframes n-flow-anim {
-                                to {
-                                    stroke-dashoffset: -100;
-                                }
-                            }
-
-                            @keyframes n-float-anim {
-                                0% {
-                                    transform: translateY(0.5px);
-                                }
-
-                                100% {
-                                    transform: translateY(-1.5px);
-                                }
-                            }
-                        </style>
-                        <g class="n-float">
-                            <!-- Glowing backdrop -->
-                            <circle cx="18" cy="17" r="10" fill="rgba(124, 58, 237, 0.15)" filter="blur(4px)" />
-
-                            <!-- Distal dendrite extensions -->
-                            <path
-                                d="M10 24 C8 28 6 30 4 30 M26 24 C28 28 30 30 32 30 M18 7 C18 4 20 2 22 2 M12 11 L8 7 M24 11 L28 7"
-                                stroke="#8b5cf6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"
-                                opacity="0.4" />
-
-                            <!-- Primary connections (Animated flow) -->
-                            <path class="n-flow"
-                                d="M18 17 L18 7 M18 17 L10 24 M18 17 L26 24 M18 17 L12 11 M18 17 L24 11"
-                                stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round" />
-
-                            <!-- Synaptic terminals -->
-                            <circle cx="18" cy="7" r="2" fill="#c084fc" />
-                            <circle cx="10" cy="24" r="2.5" fill="#a78bfa" />
-                            <circle cx="26" cy="24" r="2.5" fill="#a78bfa" />
-                            <circle cx="12" cy="11" r="1.5" fill="#c084fc" />
-                            <circle cx="24" cy="11" r="1.5" fill="#c084fc" />
-
-                            <!-- Soma (Cell Body) -->
-                            <circle cx="18" cy="17" r="5.5" fill="#1e1b4b" stroke="#d8b4fe" stroke-width="1.8" />
-
-                            <!-- Nucleus / Energy Core -->
-                            <circle cx="18" cy="17" r="2.5" fill="#e879f9" class="n-core-pulse" />
-                        </g>
-                    </svg>
-                    <span class="neuron-count">{{ current_user.total_xp }}</span>
-                </div>
-                {% endif %}
-
-                <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0 15px 0;">
-
-                {% if not current_user.is_authenticated %}
-                <div style="text-align: center; color: #888; font-size: 0.85rem; padding: 0 10px;">
-                    <p style="margin-bottom: 15px; line-height: 1.4;">Sign in to view lists and monitor progress.</p>
-                    <a href="{{ url_for('login') }}"
-                        style="background: #e5e7eb; color: #000; padding: 6px 16px; border-radius: 20px; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="12" cy="7" r="4"></circle>
-                        </svg>
-                        Sign in
-                    </a>
-                </div>
-                {% endif %}
             </div>
+
+            <div class="neuron-balance">
+                <svg class="neuron-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"
+                    style="overflow: visible;">
+                    <style>
+                        .n-core-pulse {
+                            animation: n-core-anim 2.5s ease-in-out infinite alternate;
+                            transform-origin: center;
+                        }
+
+                        .n-float {
+                            animation: n-float-anim 4s ease-in-out infinite alternate;
+                        }
+
+                        .n-flow {
+                            stroke-dasharray: 4 6;
+                            animation: n-flow-anim 12s linear infinite;
+                        }
+
+                        @keyframes n-core-anim {
+                            0% {
+                                filter: drop-shadow(0 0 2px #d8b4fe);
+                                transform: scale(0.9);
+                            }
+
+                            100% {
+                                filter: drop-shadow(0 0 6px #e879f9);
+                                transform: scale(1.1);
+                            }
+                        }
+
+                        @keyframes n-flow-anim {
+                            to {
+                                stroke-dashoffset: -100;
+                            }
+                        }
+
+                        @keyframes n-float-anim {
+                            0% {
+                                transform: translateY(0.5px);
+                            }
+
+                            100% {
+                                transform: translateY(-1.5px);
+                            }
+                        }
+                    </style>
+                    <g class="n-float">
+                        <!-- Glowing backdrop -->
+                        <circle cx="18" cy="17" r="10" fill="rgba(124, 58, 237, 0.15)" filter="blur(4px)" />
+
+                        <!-- Distal dendrite extensions -->
+                        <path
+                            d="M10 24 C8 28 6 30 4 30 M26 24 C28 28 30 30 32 30 M18 7 C18 4 20 2 22 2 M12 11 L8 7 M24 11 L28 7"
+                            stroke="#8b5cf6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"
+                            opacity="0.4" />
+
+                        <!-- Primary connections (Animated flow) -->
+                        <path class="n-flow" d="M18 17 L18 7 M18 17 L10 24 M18 17 L26 24 M18 17 L12 11 M18 17 L24 11"
+                            stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round" />
+
+                        <!-- Synaptic terminals -->
+                        <circle cx="18" cy="7" r="2" fill="#c084fc" />
+                        <circle cx="10" cy="24" r="2.5" fill="#a78bfa" />
+                        <circle cx="26" cy="24" r="2.5" fill="#a78bfa" />
+                        <circle cx="12" cy="11" r="1.5" fill="#c084fc" />
+                        <circle cx="24" cy="11" r="1.5" fill="#c084fc" />
+
+                        <!-- Soma (Cell Body) -->
+                        <circle cx="18" cy="17" r="5.5" fill="#1e1b4b" stroke="#d8b4fe" stroke-width="1.8" />
+
+                        <!-- Nucleus / Energy Core -->
+                        <circle cx="18" cy="17" r="2.5" fill="#e879f9" class="n-core-pulse" />
+                    </g>
+                </svg>
+                <span class="neuron-count">{{ current_user.total_xp }}</span>
+            </div>
+
+            <div class="streak-balance">
+                <svg class="streak-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true">
+                    <!-- Flame teardrop boundary field -->
+                    <path d="M12 22 C6 22 4 16 6 11 C8 6 12 2 12 2 C12 2 16 6 18 11 C20 16 18 22 12 22 Z"
+                        stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 4" opacity="0.4" fill="none"
+                        class="electric-surge-flow" />
+
+                    <!-- Floating ambient sparks -->
+                    <circle cx="10" cy="18" r="1.5" fill="currentColor" class="e-spark-float" />
+                    <circle cx="12" cy="19" r="1.2" fill="currentColor" class="e-spark-float e-spark-delay-1" />
+                    <circle cx="14" cy="17" r="1.8" fill="currentColor" class="e-spark-float e-spark-delay-2" />
+
+                    <!-- Jagged upward electric surge -->
+                    <path d="M12 21 L17 11 L13 10 L16 2 L7 12 L11 13 L8 21 Z" fill="currentColor"
+                        class="electric-flicker" />
+                    <!-- High-energy inner electric spark -->
+                    <path d="M12 18 L14 12 L12.5 11.5 L14 5 L9 12.5 L11 13 L10 18 Z" fill="#bbf7d0" opacity="0.9"
+                        class="electric-flicker" style="animation-duration: 0.6s;" />
+                </svg>
+                <span class="streak-count">{{ current_user.current_streak or 0 }}</span>
+            </div>
+            {% endif %}
+
+            <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0 15px 0;">
+
+            {% if not current_user.is_authenticated %}
+            <div style="text-align: center; color: #888; font-size: 0.85rem; padding: 0 10px;">
+                <p style="margin-bottom: 15px; line-height: 1.4;">Sign in to view lists and monitor progress.</p>
+                <a href="{{ url_for('login') }}"
+                    style="background: #e5e7eb; color: #000; padding: 6px 16px; border-radius: 20px; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    Sign in
+                </a>
+            </div>
+            {% endif %}
+        </div>
     </aside>
 
     <!-- Main Content -->
@@ -683,7 +802,8 @@
                             <a href="{{ url_for('coming_soon', game_slug=game.slug) }}" class="problem-title">
                                 {{ loop.index }}. {{ game.name }}
                                 <span class="coming-soon-badge">Coming Soon</span>
-                                {% if game.access_level == 'premium' %}<span class="lock-icon">&#128274;</span>{% endif %}
+                                {% if game.access_level == 'premium' %}<span class="lock-icon">&#128274;</span>{% endif
+                                %}
                             </a>
                             {% elif game.access_level == 'premium' %}
                             <a href="#" class="problem-title">
@@ -782,5 +902,3 @@
     </script>
 </div>
 {% endblock %}
-
-
