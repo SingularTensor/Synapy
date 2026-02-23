@@ -6,9 +6,9 @@
 <style>
     .problems-layout {
         display: grid;
-        grid-template-columns: 250px minmax(0, 1fr);
+        grid-template-columns: 170px minmax(0, 1fr);
         padding: 30px 40px 50px 40px;
-        gap: 40px;
+        gap: 20px;
         align-items: start;
     }
 
@@ -21,7 +21,7 @@
     .sidebar-menu {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 4px;
     }
 
     .sidebar-item {
@@ -44,33 +44,173 @@
     .neuron-balance {
         display: flex;
         align-items: center;
-        gap: 10px;
-        padding: 12px 16px;
-        margin-top: 4px;
+        justify-content: flex-start;
+        gap: 6px;
+        padding: 6px 8px;
+        margin-left: 10px;
+        margin-top: 0;
         border-radius: 8px;
-        background: rgba(124, 58, 237, 0.08);
-        border: 1px solid rgba(167, 139, 250, 0.15);
+        background: transparent;
+        border: none;
+        text-align: left;
     }
 
     .neuron-icon {
-        width: 32px;
-        height: 32px;
+        width: 39.04px;
+        height: 39.04px;
         flex-shrink: 0;
     }
 
     .neuron-count {
         color: #c4b5fd;
         font-weight: 700;
-        font-size: 1.05rem;
+        font-size: 2.1rem;
         letter-spacing: 0.02em;
     }
 
-    .neuron-count::after {
-        content: ' neurons';
-        font-weight: 500;
-        font-size: 0.8rem;
-        color: #8b7fc7;
-        letter-spacing: 0;
+    .lives-balance {
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        text-align: left;
+        margin-top: 0;
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: transparent;
+        border: none;
+    }
+
+    .lives-row {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        justify-content: flex-start;
+        flex-wrap: nowrap;
+    }
+
+    .life-heart {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .life-hover-zone {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .perceptron-svg {
+        width: 36px;
+        height: 36px;
+        transition: all 0.3s ease;
+    }
+
+    .lives-row .perceptron-svg {
+        width: 57.6px;
+        height: 57.6px;
+    }
+
+    .life-heart-active {
+        color: #ff2a55;
+        filter: drop-shadow(0 0 4px rgba(255, 42, 85, 0.5));
+    }
+
+    .life-heart-spent {
+        color: #4a4d60;
+        opacity: 0.5;
+    }
+
+    .perceptron-popover {
+        position: absolute;
+        top: 50%;
+        left: calc(100% + 28px);
+        min-width: 260px;
+        padding: 14px 16px;
+        border-radius: 12px;
+        border: 1px solid #3b3b55;
+        background: rgba(18, 20, 28, 0.96);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-50%) translateX(-6px);
+        transition: opacity 0.18s ease, transform 0.18s ease;
+        z-index: 30;
+    }
+
+    .life-hover-zone:hover .perceptron-popover,
+    .life-hover-zone:focus-within .perceptron-popover {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(-50%) translateX(0);
+    }
+
+    .perceptron-popover-title {
+        color: #f3f4f6;
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        margin-bottom: 10px;
+    }
+
+    .perceptron-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .perceptron-unit {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .perceptron-mini {
+        width: 26px;
+        height: 26px;
+    }
+
+    .perceptron-unit-active {
+        color: #ff2a55;
+        filter: drop-shadow(0 0 3px rgba(255, 42, 85, 0.4));
+    }
+
+    .perceptron-unit-spent {
+        color: #4a4d60;
+        opacity: 0.45;
+    }
+
+    .lives-count {
+        color: #ff2a55;
+        font-size: 2.1rem;
+        font-weight: 700;
+        line-height: 1;
+        filter: drop-shadow(0 0 3px rgba(255, 42, 85, 0.35));
+    }
+
+    .lives-meta {
+        display: none;
+        margin-top: 8px;
+        color: #9ca3af;
+        font-size: 0.75rem;
+    }
+
+    .p-pulse {
+        animation: p-pulse-anim 2s infinite alternate;
+        transform-origin: center;
+    }
+
+    @keyframes p-pulse-anim {
+        0% {
+            transform: scale(0.9);
+            opacity: 0.8;
+        }
+
+        100% {
+            transform: scale(1.1);
+            opacity: 1;
+            filter: drop-shadow(0 0 2px currentColor);
+        }
     }
 
     /* Main Content Area */
@@ -189,6 +329,25 @@
         font-size: 0.95rem;
     }
 
+    .life-cost-cell {
+        text-align: left;
+        white-space: nowrap;
+    }
+
+    .sigma-cost {
+        color: #ff2a55;
+        display: inline-flex;
+        align-items: center;
+        margin-right: 4px;
+        vertical-align: text-bottom;
+        filter: drop-shadow(0 0 3px rgba(255, 42, 85, 0.4));
+    }
+
+    .sigma-cost .perceptron-svg {
+        width: 32px;
+        height: 32px;
+    }
+
     .problems-table tr:hover {
         background: #1f1f2e;
     }
@@ -250,9 +409,9 @@
 
     @media (max-width: 1100px) {
         .problems-layout {
-            grid-template-columns: 220px minmax(0, 1fr);
+            grid-template-columns: 160px minmax(0, 1fr);
             padding: 24px 20px 40px 20px;
-            gap: 24px;
+            gap: 16px;
         }
 
         .hero-cards {
@@ -268,7 +427,7 @@
         }
 
         .sidebar-menu {
-            gap: 6px;
+            gap: 4px;
         }
 
         .hero-cards {
@@ -314,112 +473,139 @@
     <!-- Left Nav -->
     <aside>
         <div class="sidebar-menu">
-            <a href="#" class="sidebar-item active">
-                <span>📚</span> All Problems
-            </a>
-            <a href="#" class="sidebar-item">
-                <span>🎯</span> Study Plan
-            </a>
-            <a href="#" class="sidebar-item">
-                <span>🏆</span> Assessments
-            </a>
-
             {% if current_user.is_authenticated %}
-            <div class="neuron-balance">
-                <svg class="neuron-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"
-                    style="overflow: visible;">
-                    <style>
-                        .n-core-pulse {
-                            animation: n-core-anim 2.5s ease-in-out infinite alternate;
-                            transform-origin: center;
-                        }
+            <div class="lives-balance">
+                <div class="lives-row">
+                    <span class="life-hover-zone">
+                        <span class="life-heart {{ 'life-heart-active' if lives_remaining > 0 else 'life-heart-spent' }}">
+                            <svg class="perceptron-svg" viewBox="0 0 24 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <!-- Sigma Symbol -->
+                                <text x="12" y="18" font-family="sans-serif" font-size="18" font-weight="bold"
+                                    fill="currentColor" text-anchor="middle" class="p-pulse" opacity="0.95">&#963;</text>
+                            </svg>
+                        </span>
+                        <div class="perceptron-popover" id="perceptron-popover">
+                            <div class="perceptron-popover-title">Perceptrons</div>
+                            <div class="perceptron-grid" id="perceptron-grid">
+                                {% for i in range(lives_max) %}
+                                <span
+                                    class="perceptron-unit {{ 'perceptron-unit-active' if i < lives_remaining else 'perceptron-unit-spent' }}">
+                                    <svg class="perceptron-mini" viewBox="0 0 24 24" fill="none"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <text x="12" y="18" font-family="sans-serif" font-size="18"
+                                            font-weight="bold" fill="currentColor" text-anchor="middle"
+                                            opacity="0.95">&#963;</text>
+                                    </svg>
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </span>
+                    <span class="lives-count" id="lives-count">{{ lives_remaining }}</span>
+                </div>
+                <div class="lives-meta" id="lives-refresh-timer"
+                    data-seconds-until-next-life="{{ seconds_until_next_life }}"
+                    data-lives-remaining="{{ lives_remaining }}" data-lives-max="{{ lives_max }}">
+                </div>
+                </div>
 
-                        .n-float {
-                            animation: n-float-anim 4s ease-in-out infinite alternate;
-                        }
-
-                        .n-flow {
-                            stroke-dasharray: 4 6;
-                            animation: n-flow-anim 12s linear infinite;
-                        }
-
-                        @keyframes n-core-anim {
-                            0% {
-                                filter: drop-shadow(0 0 2px #d8b4fe);
-                                transform: scale(0.9);
+                <div class="neuron-balance">
+                    <svg class="neuron-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"
+                        style="overflow: visible;">
+                        <style>
+                            .n-core-pulse {
+                                animation: n-core-anim 2.5s ease-in-out infinite alternate;
+                                transform-origin: center;
                             }
 
-                            100% {
-                                filter: drop-shadow(0 0 6px #e879f9);
-                                transform: scale(1.1);
-                            }
-                        }
-
-                        @keyframes n-flow-anim {
-                            to {
-                                stroke-dashoffset: -100;
-                            }
-                        }
-
-                        @keyframes n-float-anim {
-                            0% {
-                                transform: translateY(0.5px);
+                            .n-float {
+                                animation: n-float-anim 4s ease-in-out infinite alternate;
                             }
 
-                            100% {
-                                transform: translateY(-1.5px);
+                            .n-flow {
+                                stroke-dasharray: 4 6;
+                                animation: n-flow-anim 12s linear infinite;
                             }
-                        }
-                    </style>
-                    <g class="n-float">
-                        <!-- Glowing backdrop -->
-                        <circle cx="18" cy="17" r="10" fill="rgba(124, 58, 237, 0.15)" filter="blur(4px)" />
 
-                        <!-- Distal dendrite extensions -->
-                        <path
-                            d="M10 24 C8 28 6 30 4 30 M26 24 C28 28 30 30 32 30 M18 7 C18 4 20 2 22 2 M12 11 L8 7 M24 11 L28 7"
-                            stroke="#8b5cf6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"
-                            opacity="0.4" />
+                            @keyframes n-core-anim {
+                                0% {
+                                    filter: drop-shadow(0 0 2px #d8b4fe);
+                                    transform: scale(0.9);
+                                }
 
-                        <!-- Primary connections (Animated flow) -->
-                        <path class="n-flow" d="M18 17 L18 7 M18 17 L10 24 M18 17 L26 24 M18 17 L12 11 M18 17 L24 11"
-                            stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round" />
+                                100% {
+                                    filter: drop-shadow(0 0 6px #e879f9);
+                                    transform: scale(1.1);
+                                }
+                            }
 
-                        <!-- Synaptic terminals -->
-                        <circle cx="18" cy="7" r="2" fill="#c084fc" />
-                        <circle cx="10" cy="24" r="2.5" fill="#a78bfa" />
-                        <circle cx="26" cy="24" r="2.5" fill="#a78bfa" />
-                        <circle cx="12" cy="11" r="1.5" fill="#c084fc" />
-                        <circle cx="24" cy="11" r="1.5" fill="#c084fc" />
+                            @keyframes n-flow-anim {
+                                to {
+                                    stroke-dashoffset: -100;
+                                }
+                            }
 
-                        <!-- Soma (Cell Body) -->
-                        <circle cx="18" cy="17" r="5.5" fill="#1e1b4b" stroke="#d8b4fe" stroke-width="1.8" />
+                            @keyframes n-float-anim {
+                                0% {
+                                    transform: translateY(0.5px);
+                                }
 
-                        <!-- Nucleus / Energy Core -->
-                        <circle cx="18" cy="17" r="2.5" fill="#e879f9" class="n-core-pulse" />
-                    </g>
-                </svg>
-                <span class="neuron-count">{{ current_user.total_xp }}</span>
-            </div>
-            {% endif %}
+                                100% {
+                                    transform: translateY(-1.5px);
+                                }
+                            }
+                        </style>
+                        <g class="n-float">
+                            <!-- Glowing backdrop -->
+                            <circle cx="18" cy="17" r="10" fill="rgba(124, 58, 237, 0.15)" filter="blur(4px)" />
 
-            <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0 15px 0;">
+                            <!-- Distal dendrite extensions -->
+                            <path
+                                d="M10 24 C8 28 6 30 4 30 M26 24 C28 28 30 30 32 30 M18 7 C18 4 20 2 22 2 M12 11 L8 7 M24 11 L28 7"
+                                stroke="#8b5cf6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"
+                                opacity="0.4" />
 
-            {% if not current_user.is_authenticated %}
-            <div style="text-align: center; color: #888; font-size: 0.85rem; padding: 0 10px;">
-                <p style="margin-bottom: 15px; line-height: 1.4;">Sign in to view lists and monitor progress.</p>
-                <a href="{{ url_for('login') }}"
-                    style="background: #e5e7eb; color: #000; padding: 6px 16px; border-radius: 20px; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                        <circle cx="12" cy="7" r="4"></circle>
+                            <!-- Primary connections (Animated flow) -->
+                            <path class="n-flow"
+                                d="M18 17 L18 7 M18 17 L10 24 M18 17 L26 24 M18 17 L12 11 M18 17 L24 11"
+                                stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round" />
+
+                            <!-- Synaptic terminals -->
+                            <circle cx="18" cy="7" r="2" fill="#c084fc" />
+                            <circle cx="10" cy="24" r="2.5" fill="#a78bfa" />
+                            <circle cx="26" cy="24" r="2.5" fill="#a78bfa" />
+                            <circle cx="12" cy="11" r="1.5" fill="#c084fc" />
+                            <circle cx="24" cy="11" r="1.5" fill="#c084fc" />
+
+                            <!-- Soma (Cell Body) -->
+                            <circle cx="18" cy="17" r="5.5" fill="#1e1b4b" stroke="#d8b4fe" stroke-width="1.8" />
+
+                            <!-- Nucleus / Energy Core -->
+                            <circle cx="18" cy="17" r="2.5" fill="#e879f9" class="n-core-pulse" />
+                        </g>
                     </svg>
-                    Sign in
-                </a>
+                    <span class="neuron-count">{{ current_user.total_xp }}</span>
+                </div>
+                {% endif %}
+
+                <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0 15px 0;">
+
+                {% if not current_user.is_authenticated %}
+                <div style="text-align: center; color: #888; font-size: 0.85rem; padding: 0 10px;">
+                    <p style="margin-bottom: 15px; line-height: 1.4;">Sign in to view lists and monitor progress.</p>
+                    <a href="{{ url_for('login') }}"
+                        style="background: #e5e7eb; color: #000; padding: 6px 16px; border-radius: 20px; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        Sign in
+                    </a>
+                </div>
+                {% endif %}
             </div>
-            {% endif %}
-        </div>
     </aside>
 
     <!-- Main Content -->
@@ -470,7 +656,7 @@
             <table class="problems-table">
                 <thead>
                     <tr>
-                        <th>Status</th>
+                        <th>Cost</th>
                         <th>Title</th>
                         <th>Difficulty</th>
                     </tr>
@@ -479,18 +665,29 @@
                     <!-- Database populated games -->
                     {% for game in games %}
                     <tr class="problem-row" data-category="{{ game.industry }}">
-                        <td></td>
+                        <td class="life-cost-cell">
+                            {% for _ in range(game.life_cost) %}
+                            <span class="sigma-cost">
+                                <svg class="perceptron-svg" viewBox="0 0 24 24" fill="none"
+                                    xmlns="http://www.w3.org/2000/svg">
+                                    <!-- Sigma Symbol -->
+                                    <text x="12" y="18" font-family="sans-serif" font-size="18" font-weight="bold"
+                                        fill="currentColor" text-anchor="middle" class="p-pulse"
+                                        opacity="0.95">&#963;</text>
+                                </svg>
+                            </span>
+                            {% endfor %}
+                        </td>
                         <td>
                             {% if game.is_coming_soon %}
                             <a href="{{ url_for('coming_soon', game_slug=game.slug) }}" class="problem-title">
                                 {{ loop.index }}. {{ game.name }}
                                 <span class="coming-soon-badge">Coming Soon</span>
-                                {% if game.access_level == 'premium' %}<span class="lock-icon">&#128274;</span>{% endif
-                                %}
+                                {% if game.access_level == 'premium' %}<span class="lock-icon">&#128274;</span>{% endif %}
                             </a>
                             {% elif game.access_level == 'premium' %}
                             <a href="#" class="problem-title">
-                                {{ loop.index }}. {{ game.name }} <span class="lock-icon">🔒</span>
+                                {{ loop.index }}. {{ game.name }} <span class="lock-icon">&#128274;</span>
                             </a>
                             {% else %}
                             <a href="{% if current_user.is_authenticated %}{{ url_for('play_game', game_slug=game.slug) }}{% else %}{{ url_for('try_game', game_slug=game.slug) }}{% endif %}"
@@ -515,6 +712,11 @@
         document.addEventListener('DOMContentLoaded', () => {
             const buttons = document.querySelectorAll('.filter-btn');
             const rows = document.querySelectorAll('.problem-row');
+            const livesTimer = document.getElementById('lives-refresh-timer');
+            const lifeSigma = document.querySelector('.lives-row .life-heart');
+            const livesCount = document.getElementById('lives-count');
+            const perceptronUnits = document.querySelectorAll('#perceptron-grid .perceptron-unit');
+            const LIFE_REGEN_SECONDS = 1800;
 
             buttons.forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -534,7 +736,51 @@
                     });
                 });
             });
+
+            if (livesTimer) {
+                let secondsUntilNextLife = Number(livesTimer.dataset.secondsUntilNextLife || 0);
+                let livesRemaining = Number(livesTimer.dataset.livesRemaining || 0);
+                const livesMax = Number(livesTimer.dataset.livesMax || 0);
+
+                const renderLives = () => {
+                    if (lifeSigma) {
+                        lifeSigma.classList.toggle('life-heart-active', livesRemaining > 0);
+                        lifeSigma.classList.toggle('life-heart-spent', livesRemaining <= 0);
+                    }
+                    if (livesCount) {
+                        livesCount.textContent = String(livesRemaining);
+                    }
+                    if (perceptronUnits.length) {
+                        perceptronUnits.forEach((unit, index) => {
+                            unit.classList.toggle('perceptron-unit-active', index < livesRemaining);
+                            unit.classList.toggle('perceptron-unit-spent', index >= livesRemaining);
+                        });
+                    }
+                };
+
+                renderLives();
+
+                setInterval(() => {
+                    if (livesRemaining >= livesMax) {
+                        return;
+                    }
+
+                    if (secondsUntilNextLife <= 0) {
+                        livesRemaining = Math.min(livesMax, livesRemaining + 1);
+                        renderLives();
+                        if (livesRemaining >= livesMax) {
+                            return;
+                        }
+                        secondsUntilNextLife = LIFE_REGEN_SECONDS;
+                        return;
+                    }
+
+                    secondsUntilNextLife -= 1;
+                }, 1000);
+            }
         });
     </script>
 </div>
 {% endblock %}
+
+
