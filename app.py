@@ -4,9 +4,12 @@ from flask_limiter.util import get_remote_address
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
+from dotenv import load_dotenv
 from database import db, User
 from datetime import timedelta
 import os
+
+load_dotenv()
 
 
 def env_bool(var_name, default=False):
@@ -68,6 +71,14 @@ app.config['RATE_LIMIT_ADMIN_MUTATIONS'] = os.environ.get(
     'RATE_LIMIT_ADMIN_MUTATIONS',
     '30 per minute' if is_production else '300 per minute',
 )
+app.config['RATE_LIMIT_UPGRADE_CHECKOUT'] = os.environ.get(
+    'RATE_LIMIT_UPGRADE_CHECKOUT',
+    '10 per minute' if is_production else '100 per minute',
+)
+app.config['BILLING_PROVIDER'] = os.environ.get('BILLING_PROVIDER', 'dev').strip().lower()
+app.config['STRIPE_SECRET_KEY'] = os.environ.get('STRIPE_SECRET_KEY', '')
+app.config['STRIPE_PRICE_ID'] = os.environ.get('STRIPE_PRICE_ID', '')
+app.config['STRIPE_WEBHOOK_SECRET'] = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 
 db.init_app(app)
 migrate = Migrate(app, db)

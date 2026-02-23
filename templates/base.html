@@ -255,13 +255,15 @@
             <span class="nav-username">@{{ current_user.username }}</span>
             <a href="{{ url_for('dashboard') }}" class="nav-link">Dashboard</a>
             <a href="{{ url_for('logout') }}" class="nav-link text-muted">Logout</a>
-            <a href="#" class="btn btn-premium">Upgrade</a>
+            <a href="{{ url_for('upgrade') }}" class="btn btn-premium">
+                {{ 'Premium' if current_user.is_premium else 'Upgrade' }}
+            </a>
             {% else %}
             <div class="auth-links">
                 <a href="{{ url_for('register') }}">Register</a> <span class="divider">or</span> <a
                     href="{{ url_for('login') }}">Log in</a>
             </div>
-            <a href="#" class="btn btn-premium">Upgrade</a>
+            <a href="{{ url_for('upgrade') }}" class="btn btn-premium">Upgrade</a>
             {% endif %}
         </div>
     </nav>

@@ -72,7 +72,15 @@ RATE_LIMIT_ENABLED=true
 RATE_LIMIT_LOGIN="20 per minute"
 RATE_LIMIT_REGISTER="10 per minute"
 RATE_LIMIT_ADMIN_MUTATIONS="30 per minute"
+RATE_LIMIT_UPGRADE_CHECKOUT="10 per minute"
 RATELIMIT_STORAGE_URI=memory://
+
+# billing provider
+BILLING_PROVIDER=dev
+# set BILLING_PROVIDER=stripe in production and configure:
+STRIPE_SECRET_KEY=
+STRIPE_PRICE_ID=
+STRIPE_WEBHOOK_SECRET=
 ```
 
 In development, defaults are intentionally looser and do not require `SECRET_KEY`.

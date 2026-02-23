@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}Upgrade - Synapy{% endblock %}
+
+{% block head %}
+<style>
+    .upgrade-wrap {
+        max-width: 860px;
+        margin: 36px auto;
+        padding: 0 20px 40px;
+    }
+    .upgrade-card {
+        background: #1a1a2e;
+        border: 1px solid #2a2a4a;
+        border-radius: 16px;
+        padding: 30px;
+    }
+    .upgrade-card h1 {
+        margin: 0 0 10px;
+        font-size: 1.9rem;
+    }
+    .upgrade-sub {
+        color: #a0a0a0;
+        margin-bottom: 24px;
+    }
+    .upgrade-list {
+        margin: 0 0 26px;
+        padding-left: 18px;
+        color: #d4d4d8;
+    }
+    .upgrade-list li {
+        margin-bottom: 8px;
+    }
+    .upgrade-meta {
+        margin-top: 14px;
+        color: #9ca3af;
+        font-size: 0.9rem;
+    }
+    .upgrade-state {
+        display: inline-block;
+        margin-top: 8px;
+        margin-bottom: 18px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        background: rgba(34, 197, 94, 0.16);
+        color: #86efac;
+        border: 1px solid rgba(34, 197, 94, 0.42);
+    }
+    .upgrade-note {
+        margin-top: 14px;
+        color: #d1d5db;
+        font-size: 0.92rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="upgrade-wrap">
+    <div class="upgrade-card">
+        <h1>Unlock Premium</h1>
+        <div class="upgrade-sub">Access advanced game modes and full industry-specific assessments.</div>
+
+        {% if is_premium %}
+        <div class="upgrade-state">Premium Active</div>
+        <div class="upgrade-note">Your account already has premium access.</div>
+        <a href="{{ url_for('problems') }}" class="btn btn-primary" style="margin-top: 16px;">Continue Training</a>
+        {% else %}
+        <ul class="upgrade-list">
+            <li>Play premium assessment modes from the problems catalog.</li>
+            <li>Unlock complete domain coverage and deeper benchmarking.</li>
+            <li>Use premium-only performance views as they roll out.</li>
+        </ul>
+
+        <form method="POST" action="{{ url_for('start_upgrade_checkout') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary">Upgrade to Premium</button>
+        </form>
+
+        {% if billing_provider == 'dev' %}
+        <div class="upgrade-note">Development billing mode is active. Checkout instantly grants premium.</div>
+        {% elif billing_provider == 'stripe' %}
+        <div class="upgrade-note">Secure checkout is provided by Stripe.</div>
+        {% else %}
+        <div class="upgrade-note">Billing provider: {{ billing_provider }}</div>
+        {% endif %}
+        {% endif %}
+
+        <div class="upgrade-meta">Billing provider: <strong>{{ billing_provider }}</strong></div>
+    </div>
+</div>
+{% endblock %}

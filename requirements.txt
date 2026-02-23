@@ -5,4 +5,6 @@ Flask-Migrate==4.0.7
 Flask-SQLAlchemy==3.1.1
 Flask-WTF==1.2.1
 SQLAlchemy==2.0.44
+stripe==11.6.0
+python-dotenv==1.0.1
 Werkzeug==3.1.4

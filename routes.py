@@ -1,10 +1,10 @@
 import math
 import os
 from functools import wraps
-from flask import render_template, request, jsonify, redirect, url_for, flash, abort
+from flask import render_template, request, jsonify, redirect, url_for, flash, abort, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 
-from app import app, limiter
+from app import app, limiter, csrf
 from database import db, User, GameType, GameSession, CognitiveScore, COGNITIVE_DOMAINS
 
 COGNITIVE_WEIGHT_VERSION = '2026-02-22-v4'
@@ -143,6 +143,83 @@ def user_can_access_game(user, game_type):
     if game_type.access_level != 'premium':
         return True
     return user_has_premium_access(user)
+
+
+def get_billing_provider():
+    provider = (app.config.get('BILLING_PROVIDER') or 'dev').strip().lower()
+    if provider in {'dev', 'stripe'}:
+        return provider
+    return 'dev'
+
+
+def set_user_premium_state(user_id, is_premium):
+    user = db.session.get(User, int(user_id))
+    if user is None:
+        return None
+    user.is_premium = bool(is_premium)
+    db.session.commit()
+    return user
+
+
+def _create_stripe_checkout_session(user):
+    try:
+        import stripe  # type: ignore
+    except ImportError as exc:  # pragma: no cover - guarded by runtime config
+        raise RuntimeError('Stripe SDK is not installed. Add `stripe` to requirements.') from exc
+
+    stripe_secret_key = app.config.get('STRIPE_SECRET_KEY')
+    stripe_price_id = app.config.get('STRIPE_PRICE_ID')
+    if not stripe_secret_key or not stripe_price_id:
+        raise RuntimeError('Stripe is not configured. Set STRIPE_SECRET_KEY and STRIPE_PRICE_ID.')
+
+    stripe.api_key = stripe_secret_key
+    success_url = url_for('upgrade_success', _external=True) + '?session_id={CHECKOUT_SESSION_ID}'
+    cancel_url = url_for('upgrade_cancel', _external=True)
+
+    return stripe.checkout.Session.create(
+        mode='subscription',
+        line_items=[{'price': stripe_price_id, 'quantity': 1}],
+        success_url=success_url,
+        cancel_url=cancel_url,
+        client_reference_id=str(user.id),
+        customer_email=user.email,
+        metadata={'user_id': str(user.id)},
+    )
+
+
+def _extract_stripe_user_id(session_obj):
+    metadata = session_obj.get('metadata') or {}
+    user_id_raw = metadata.get('user_id') or session_obj.get('client_reference_id')
+    try:
+        return int(user_id_raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _sync_stripe_checkout_session_for_current_user(session_id, expected_user_id):
+    try:
+        import stripe  # type: ignore
+    except ImportError as exc:  # pragma: no cover - guarded by runtime config
+        raise RuntimeError('Stripe SDK is not installed. Add `stripe` to requirements.') from exc
+
+    stripe_secret_key = app.config.get('STRIPE_SECRET_KEY')
+    if not stripe_secret_key:
+        raise RuntimeError('Stripe is not configured. Set STRIPE_SECRET_KEY.')
+
+    stripe.api_key = stripe_secret_key
+    session_obj = stripe.checkout.Session.retrieve(session_id)
+
+    session_user_id = _extract_stripe_user_id(session_obj)
+    if session_user_id != int(expected_user_id):
+        return False
+
+    payment_status = (session_obj.get('payment_status') or '').lower()
+    status = (session_obj.get('status') or '').lower()
+    if payment_status not in {'paid', 'no_payment_required'} and status != 'complete':
+        return False
+
+    set_user_premium_state(expected_user_id, True)
+    return True
 
 
 def parse_int_payload_field(
@@ -380,6 +457,123 @@ def dashboard():
                          recent_sessions=recent_sessions,
                          cognitive_scores=cognitive_scores,
                          domains=COGNITIVE_DOMAINS)
+
+
+@app.route('/upgrade')
+@login_required
+def upgrade():
+    return render_template(
+        'upgrade.html',
+        is_premium=user_has_premium_access(current_user),
+        billing_provider=get_billing_provider(),
+    )
+
+
+@app.route('/upgrade/checkout', methods=['POST'])
+@login_required
+@limiter.limit(lambda: app.config['RATE_LIMIT_UPGRADE_CHECKOUT'], methods=['POST'])
+def start_upgrade_checkout():
+    if user_has_premium_access(current_user):
+        flash('Your account already has Premium access.')
+        return redirect(url_for('upgrade'))
+
+    provider = get_billing_provider()
+    if provider == 'dev':
+        set_user_premium_state(current_user.id, True)
+        flash('Premium access enabled (development billing provider).')
+        return redirect(url_for('dashboard'))
+
+    if provider == 'stripe':
+        try:
+            checkout_session = _create_stripe_checkout_session(current_user)
+        except Exception:
+            current_app.logger.exception('Failed to create Stripe checkout session.')
+            flash('Unable to start Stripe checkout right now. Please try again.')
+            return redirect(url_for('upgrade'))
+        return redirect(checkout_session.url, code=303)
+
+    flash('Unsupported billing provider configuration.')
+    return redirect(url_for('upgrade'))
+
+
+@app.route('/upgrade/success')
+@login_required
+def upgrade_success():
+    if user_has_premium_access(current_user):
+        flash('Premium access confirmed.')
+        return redirect(url_for('dashboard'))
+
+    provider = get_billing_provider()
+    if provider == 'dev':
+        set_user_premium_state(current_user.id, True)
+        flash('Premium access enabled.')
+        return redirect(url_for('dashboard'))
+
+    if provider == 'stripe':
+        session_id = (request.args.get('session_id') or '').strip()
+        if not session_id:
+            flash('Missing Stripe session confirmation. Contact support if you were charged.')
+            return redirect(url_for('upgrade'))
+
+        try:
+            upgraded = _sync_stripe_checkout_session_for_current_user(session_id, current_user.id)
+        except Exception:
+            current_app.logger.exception('Stripe checkout confirmation failed.')
+            flash('Could not verify payment yet. Please refresh in a moment.')
+            return redirect(url_for('upgrade'))
+
+        if upgraded:
+            flash('Premium access activated.')
+            return redirect(url_for('dashboard'))
+
+        flash('Payment is still processing. Please check back shortly.')
+        return redirect(url_for('upgrade'))
+
+    flash('Unsupported billing provider configuration.')
+    return redirect(url_for('upgrade'))
+
+
+@app.route('/upgrade/cancel')
+@login_required
+def upgrade_cancel():
+    flash('Checkout canceled. Your account remains on the free tier.')
+    return redirect(url_for('upgrade'))
+
+
+@app.route('/api/billing/stripe/webhook', methods=['POST'])
+@csrf.exempt
+def stripe_webhook():
+    if get_billing_provider() != 'stripe':
+        abort(404)
+
+    try:
+        import stripe  # type: ignore
+    except ImportError:
+        return jsonify({'error': 'Stripe SDK is not installed'}), 503
+
+    stripe_secret_key = app.config.get('STRIPE_SECRET_KEY')
+    stripe_webhook_secret = app.config.get('STRIPE_WEBHOOK_SECRET')
+    if not stripe_secret_key or not stripe_webhook_secret:
+        return jsonify({'error': 'Stripe webhook is not configured'}), 503
+
+    stripe.api_key = stripe_secret_key
+    payload = request.get_data(as_text=False)
+    sig_header = request.headers.get('Stripe-Signature', '')
+
+    try:
+        event = stripe.Webhook.construct_event(payload=payload, sig_header=sig_header, secret=stripe_webhook_secret)
+    except ValueError:
+        return jsonify({'error': 'Invalid payload'}), 400
+    except stripe.error.SignatureVerificationError:
+        return jsonify({'error': 'Invalid signature'}), 400
+
+    if event.get('type') == 'checkout.session.completed':
+        session_obj = event.get('data', {}).get('object', {})
+        user_id = _extract_stripe_user_id(session_obj)
+        if user_id is not None:
+            set_user_premium_state(user_id, True)
+
+    return jsonify({'received': True})
 
 
 @app.route('/play/<game_slug>')
