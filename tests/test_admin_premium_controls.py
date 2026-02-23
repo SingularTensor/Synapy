@@ -3,7 +3,7 @@ import uuid
 import re
 
 from app import app
-from database import db, User, GameSession, CognitiveScore
+from database import db, User, GameSession, CognitiveScore, StripeWebhookEvent
 
 
 class AdminPremiumControlsTests(unittest.TestCase):
@@ -48,6 +48,7 @@ class AdminPremiumControlsTests(unittest.TestCase):
 
     def tearDown(self):
         user_ids = [self.admin_user.id, self.regular_user.id, self.non_admin_user.id]
+        StripeWebhookEvent.query.delete(synchronize_session=False)
         CognitiveScore.query.filter(CognitiveScore.user_id.in_(user_ids)).delete(synchronize_session=False)
         GameSession.query.filter(GameSession.user_id.in_(user_ids)).delete(synchronize_session=False)
         User.query.filter(User.id.in_(user_ids)).delete(synchronize_session=False)
@@ -124,6 +125,29 @@ class AdminPremiumControlsTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertFalse(db.session.get(User, self.regular_user.id).is_premium)
+
+    def test_admin_panel_shows_billing_diagnostics(self):
+        self._login(self.admin_user.username)
+
+        self.regular_user.billing_status = 'active'
+        self.regular_user.stripe_customer_id = 'cus_diag_test'
+        self.regular_user.stripe_subscription_id = 'sub_diag_test'
+        db.session.add(
+            StripeWebhookEvent(
+                event_id='evt_diag_test',
+                event_type='checkout.session.completed',
+            )
+        )
+        db.session.commit()
+
+        response = self.client.get('/admin')
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn('Billing Diagnostics', html)
+        self.assertIn('active', html)
+        self.assertIn('cus_diag_test', html)
+        self.assertIn('sub_diag_test', html)
+        self.assertIn('evt_diag_test', html)
 
 
 if __name__ == '__main__':

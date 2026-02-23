@@ -1144,7 +1144,16 @@ def leaderboard():
 def admin_panel():
     users = User.query.order_by(User.created_at.desc()).all()
     game_types = GameType.query.all()
-    return render_template('admin.html', users=users, game_types=game_types)
+    recent_webhook_events = StripeWebhookEvent.query.order_by(
+        StripeWebhookEvent.processed_at.desc()
+    ).limit(20).all()
+    return render_template(
+        'admin.html',
+        users=users,
+        game_types=game_types,
+        recent_webhook_events=recent_webhook_events,
+        billing_provider=get_billing_provider(),
+    )
 
 
 @app.route('/admin/users/<int:user_id>/premium', methods=['POST'])

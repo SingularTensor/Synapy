@@ -84,6 +84,13 @@
         color: #888;
         font-size: 0.8rem;
     }
+    .mono {
+        font-family: "Courier New", monospace;
+        font-size: 0.78rem;
+    }
+    .muted {
+        color: #94A3B8;
+    }
 </style>
 {% endblock %}
 
@@ -101,6 +108,9 @@
                     <th>XP</th>
                     <th>Role</th>
                     <th>Premium</th>
+                    <th>Billing Status</th>
+                    <th>Stripe Customer</th>
+                    <th>Stripe Subscription</th>
                     <th>Actions</th>
                     <th>Joined</th>
                 </tr>
@@ -122,6 +132,9 @@
                         <span class="badge badge-free">Free</span>
                         {% endif %}
                     </td>
+                    <td>{{ user.billing_status or 'inactive' }}</td>
+                    <td class="mono">{{ user.stripe_customer_id or '--' }}</td>
+                    <td class="mono">{{ user.stripe_subscription_id or '--' }}</td>
                     <td>
                         {% if user.is_admin %}
                         <span class="action-disabled">Locked</span>
@@ -138,6 +151,35 @@
                     <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '--' }}</td>
                 </tr>
                 {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>Billing Diagnostics</h2>
+        <p class="muted">Provider: <strong>{{ billing_provider }}</strong>. Latest webhook events are shown for quick support triage.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Processed At</th>
+                    <th>Event Type</th>
+                    <th>Event ID</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if recent_webhook_events %}
+                    {% for event in recent_webhook_events %}
+                    <tr>
+                        <td>{{ event.processed_at.strftime('%Y-%m-%d %H:%M:%S') if event.processed_at else '--' }}</td>
+                        <td>{{ event.event_type }}</td>
+                        <td class="mono">{{ event.event_id }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="3" class="muted">No webhook events have been processed yet.</td>
+                    </tr>
+                {% endif %}
             </tbody>
         </table>
     </div>
