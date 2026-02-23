@@ -267,6 +267,32 @@ class StripeWebhookLifecycleTests(unittest.TestCase):
             1,
         )
 
+    def test_webhook_returns_500_when_processing_fails(self):
+        event = {
+            'id': f'evt_{uuid.uuid4().hex[:12]}',
+            'type': 'checkout.session.completed',
+            'data': {
+                'object': {
+                    'metadata': {'user_id': str(self.user.id)},
+                    'payment_status': 'paid',
+                    'status': 'complete',
+                }
+            },
+        }
+
+        with patch('routes._process_stripe_event', side_effect=RuntimeError('boom')):
+            response = self._post_webhook(event)
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(
+            (response.get_json() or {}).get('error'),
+            'Stripe webhook processing failed',
+        )
+        self.assertEqual(
+            StripeWebhookEvent.query.filter_by(event_id=event['id']).count(),
+            0,
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

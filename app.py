@@ -79,6 +79,9 @@ app.config['BILLING_PROVIDER'] = os.environ.get('BILLING_PROVIDER', 'dev').strip
 app.config['STRIPE_SECRET_KEY'] = os.environ.get('STRIPE_SECRET_KEY', '')
 app.config['STRIPE_PRICE_ID'] = os.environ.get('STRIPE_PRICE_ID', '')
 app.config['STRIPE_WEBHOOK_SECRET'] = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
+app.config['BILLING_ALERTS_ENABLED'] = env_bool('BILLING_ALERTS_ENABLED', default=is_production)
+app.config['BILLING_ALERT_WEBHOOK_URL'] = os.environ.get('BILLING_ALERT_WEBHOOK_URL', '').strip()
+app.config['BILLING_ALERT_TIMEOUT_SECONDS'] = env_int('BILLING_ALERT_TIMEOUT_SECONDS', 3)
 
 db.init_app(app)
 with app.app_context():

@@ -1,7 +1,9 @@
 import math
 import os
+import json
 from functools import wraps
 import click
+from urllib import request as urllib_request
 from flask import render_template, request, jsonify, redirect, url_for, flash, abort, current_app
 from flask.cli import AppGroup
 from flask_login import login_user, logout_user, login_required, current_user
@@ -161,6 +163,65 @@ def get_billing_provider():
     if provider in {'dev', 'stripe'}:
         return provider
     return 'dev'
+
+
+def _billing_log_context(**context):
+    parts = []
+    for key in sorted(context.keys()):
+        value = context[key]
+        if value is None:
+            continue
+        text = str(value).replace('\n', ' ').strip()
+        if not text:
+            continue
+        parts.append(f'{key}={text}')
+    return ' '.join(parts)
+
+
+def _billing_log(level, message, **context):
+    logger_fn = getattr(current_app.logger, level, current_app.logger.info)
+    context_text = _billing_log_context(**context)
+    if context_text:
+        logger_fn('[billing] %s %s', message, context_text)
+        return
+    logger_fn('[billing] %s', message)
+
+
+def _send_billing_alert(event_name, severity='error', **context):
+    level = 'warning' if severity == 'warning' else 'error'
+    _billing_log(level, f'alert:{event_name}', **context)
+
+    if not app.config.get('BILLING_ALERTS_ENABLED', False):
+        return
+
+    webhook_url = (app.config.get('BILLING_ALERT_WEBHOOK_URL') or '').strip()
+    if not webhook_url:
+        return
+
+    payload = {
+        'service': 'synapy',
+        'scope': 'billing',
+        'event': event_name,
+        'severity': severity,
+        'context': context,
+    }
+    data = json.dumps(payload, separators=(',', ':'), default=str).encode('utf-8')
+    req = urllib_request.Request(
+        webhook_url,
+        data=data,
+        headers={'Content-Type': 'application/json'},
+        method='POST',
+    )
+    timeout = max(1, int(app.config.get('BILLING_ALERT_TIMEOUT_SECONDS', 3)))
+    try:
+        with urllib_request.urlopen(req, timeout=timeout):
+            return
+    except Exception:
+        current_app.logger.exception(
+            'Failed to deliver billing alert event=%s webhook_url=%s',
+            event_name,
+            webhook_url,
+        )
 
 
 def _stripe_get(payload_obj, key, default=None):
@@ -561,6 +622,7 @@ billing_cli = AppGroup('billing')
 def billing_reconcile_command(user_ids, limit, dry_run):
     provider = get_billing_provider()
     if provider != 'stripe':
+        _billing_log('info', 'reconcile_skipped_non_stripe_provider', provider=provider)
         click.echo(f'Skipping reconcile: BILLING_PROVIDER={provider} (expected stripe).')
         return
 
@@ -610,15 +672,37 @@ def billing_reconcile_command(user_ids, limit, dry_run):
         except Exception as exc:
             errors += 1
             current_app.logger.exception('Billing reconcile failed for user_id=%s', user.id)
+            _billing_log('error', 'reconcile_user_failed', user_id=user.id, error=exc)
             click.echo(f'user_id={user.id} reconcile_error={exc}')
 
     if not dry_run:
         db.session.commit()
 
-    click.echo(
+    summary = (
         f'reconcile_complete scanned={len(users)} '
-        f'updated={updated} unchanged={unchanged} errors={errors} dry_run={str(dry_run).lower()}'
+        f'updated={updated} unchanged={unchanged} '
+        f'errors={errors} dry_run={str(dry_run).lower()}'
     )
+    click.echo(summary)
+    _billing_log(
+        'info',
+        'reconcile_complete',
+        scanned=len(users),
+        updated=updated,
+        unchanged=unchanged,
+        errors=errors,
+        dry_run=str(dry_run).lower(),
+    )
+    if errors > 0:
+        _send_billing_alert(
+            'reconcile_completed_with_errors',
+            severity='warning',
+            scanned=len(users),
+            updated=updated,
+            unchanged=unchanged,
+            errors=errors,
+            dry_run=str(dry_run).lower(),
+        )
 
 
 app.cli.add_command(billing_cli)
@@ -951,11 +1035,18 @@ def stripe_webhook():
     try:
         import stripe  # type: ignore
     except ImportError:
+        _send_billing_alert('webhook_stripe_sdk_missing', severity='error')
         return jsonify({'error': 'Stripe SDK is not installed'}), 503
 
     stripe_secret_key = app.config.get('STRIPE_SECRET_KEY')
     stripe_webhook_secret = app.config.get('STRIPE_WEBHOOK_SECRET')
     if not stripe_secret_key or not stripe_webhook_secret:
+        _send_billing_alert(
+            'webhook_misconfigured',
+            severity='error',
+            has_secret_key=bool(stripe_secret_key),
+            has_webhook_secret=bool(stripe_webhook_secret),
+        )
         return jsonify({'error': 'Stripe webhook is not configured'}), 503
 
     stripe.api_key = stripe_secret_key
@@ -965,18 +1056,23 @@ def stripe_webhook():
     try:
         event = stripe.Webhook.construct_event(payload=payload, sig_header=sig_header, secret=stripe_webhook_secret)
     except ValueError:
+        _billing_log('warning', 'webhook_invalid_payload', remote_addr=request.remote_addr)
         return jsonify({'error': 'Invalid payload'}), 400
     except stripe.error.SignatureVerificationError:
+        _billing_log('warning', 'webhook_invalid_signature', remote_addr=request.remote_addr)
         return jsonify({'error': 'Invalid signature'}), 400
 
     event_id = (event.get('id') or '').strip()
     event_type = (event.get('type') or '').strip()
     if not event_id:
+        _billing_log('warning', 'webhook_missing_event_id')
         return jsonify({'error': 'Stripe event id is required'}), 400
     if not event_type:
+        _billing_log('warning', 'webhook_missing_event_type', event_id=event_id)
         return jsonify({'error': 'Stripe event type is required'}), 400
 
     if not _claim_stripe_event(event_id, event_type):
+        _billing_log('info', 'webhook_duplicate_event', event_id=event_id, event_type=event_type)
         return jsonify({'received': True, 'duplicate': True})
 
     try:
@@ -985,8 +1081,15 @@ def stripe_webhook():
     except Exception:
         db.session.rollback()
         current_app.logger.exception('Failed to process Stripe webhook event %s.', event_id)
+        _send_billing_alert(
+            'webhook_processing_failed',
+            severity='error',
+            event_id=event_id,
+            event_type=event_type,
+        )
         return jsonify({'error': 'Stripe webhook processing failed'}), 500
 
+    _billing_log('info', 'webhook_processed', event_id=event_id, event_type=event_type)
     return jsonify({'received': True})
 
 

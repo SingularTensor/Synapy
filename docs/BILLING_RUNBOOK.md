@@ -19,6 +19,10 @@ Set these in the running environment:
 4. `STRIPE_WEBHOOK_SECRET=<whsec_...>`
 5. `APP_ENV=production` in production
 6. `SECRET_KEY=<strong-random-value>`
+7. Optional alerting:
+   - `BILLING_ALERTS_ENABLED=true`
+   - `BILLING_ALERT_WEBHOOK_URL=<ops-webhook-url>`
+   - `BILLING_ALERT_TIMEOUT_SECONDS=3`
 
 
 ## Stripe Webhook Events
@@ -74,6 +78,22 @@ Behavior:
 1. Run `--dry-run` during incident triage first.
 2. Run real reconcile when drift is confirmed.
 3. Schedule periodic reconcile (daily or every few hours) once deployed.
+
+
+## Logs And Alerts
+Billing code emits structured log entries prefixed with `[billing]`.
+
+Look for:
+1. `webhook_processed`
+2. `webhook_duplicate_event`
+3. `webhook_invalid_signature`
+4. `webhook_processing_failed`
+5. `reconcile_complete`
+6. `reconcile_user_failed`
+
+When `BILLING_ALERTS_ENABLED=true` and `BILLING_ALERT_WEBHOOK_URL` is set:
+1. Webhook processing failures trigger `alert:webhook_processing_failed`.
+2. Reconcile runs with errors trigger `alert:reconcile_completed_with_errors`.
 
 
 ## Triage Checklist

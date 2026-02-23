@@ -82,6 +82,10 @@ BILLING_PROVIDER=dev
 STRIPE_SECRET_KEY=
 STRIPE_PRICE_ID=
 STRIPE_WEBHOOK_SECRET=
+# optional billing alert webhook (Slack/ops relay, etc.)
+BILLING_ALERTS_ENABLED=true
+BILLING_ALERT_WEBHOOK_URL=
+BILLING_ALERT_TIMEOUT_SECONDS=3
 ```
 
 In development, defaults are intentionally looser and do not require `SECRET_KEY`.
