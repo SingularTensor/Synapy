@@ -281,6 +281,16 @@
         justify-content: center;
     }
 
+    @keyframes rainbow-cycle {
+        0%   { color: #ff0000; text-shadow: 0 0 12px rgba(255, 0, 0, 0.7); }
+        16%  { color: #ff8800; text-shadow: 0 0 12px rgba(255, 136, 0, 0.7); }
+        33%  { color: #ffdd00; text-shadow: 0 0 12px rgba(255, 221, 0, 0.7); }
+        50%  { color: #00cc44; text-shadow: 0 0 12px rgba(0, 204, 68, 0.7); }
+        66%  { color: #0088ff; text-shadow: 0 0 12px rgba(0, 136, 255, 0.7); }
+        83%  { color: #aa00ff; text-shadow: 0 0 12px rgba(170, 0, 255, 0.7); }
+        100% { color: #ff0000; text-shadow: 0 0 12px rgba(255, 0, 0, 0.7); }
+    }
+
     .tile-progress-pop .pop-text {
         color: #fff7ed;
         font-size: 1.65rem;
@@ -288,6 +298,10 @@
         letter-spacing: 0.01em;
         text-shadow: 0 0 12px rgba(74, 222, 128, 0.7);
         z-index: 2;
+    }
+
+    .tile-progress-pop .pop-text.rainbow {
+        animation: rainbow-cycle 0.4s linear infinite;
     }
 
     .tile-sparkle {
@@ -401,38 +415,47 @@
     }
 
     .game-over-banner {
-        position: fixed;
-        bottom: -150px;
-        left: 0;
-        right: 0;
-        background: rgba(15, 23, 42, 0.95);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border-top: 1px solid rgba(148, 163, 184, 0.15);
-        box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
-        padding: 24px 20px;
-        z-index: 100;
-        transition: bottom 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
-        display: flex;
+        display: none;
+        width: 100%;
+        min-height: clamp(320px, 58vh, 560px);
+        margin-top: 12px;
+        padding: 28px 20px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(10, 14, 24, 0.96));
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38);
+        align-items: center;
         justify-content: center;
     }
 
     .game-over-banner.show {
-        bottom: 0;
+        display: flex;
+    }
+
+    .game-over-banner.outcome-success {
+        border-color: rgba(74, 222, 128, 0.45);
+    }
+
+    .game-over-banner.outcome-neutral {
+        border-color: rgba(148, 163, 184, 0.35);
+    }
+
+    .game-over-banner.outcome-failure {
+        border-color: rgba(248, 113, 113, 0.55);
     }
 
     .banner-content {
-        max-width: 800px;
+        max-width: 760px;
         width: 100%;
         display: flex;
-        justify-content: space-between;
+        flex-direction: column;
         align-items: center;
-        flex-wrap: wrap;
-        gap: 20px;
+        text-align: center;
+        gap: 22px;
     }
 
     .banner-stats {
-        text-align: left;
+        text-align: center;
     }
 
     .banner-stats h2 {
@@ -466,6 +489,32 @@
         display: flex;
         gap: 12px;
         align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .retry-meta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .retry-cost {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(248, 113, 113, 0.45);
+        background: rgba(127, 29, 29, 0.24);
+        color: #fecaca;
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+
+    .retry-sigma {
+        color: #ff2a55;
+        font-weight: 800;
     }
 
     @media (max-width: 560px) {
@@ -567,7 +616,11 @@
                 {% if not current_user.is_authenticated %}
                 <a href="{{ url_for('register') }}" class="btn btn-secondary">Sign Up to Save</a>
                 {% endif %}
-                <button class="btn btn-primary" id="restartBtn">Try Again</button>
+                <div class="retry-meta">
+                    <button class="btn btn-primary" id="restartBtn">Try Again</button>
+                    <span class="retry-cost">Cost <span class="retry-sigma">&#963;</span>1</span>
+                </div>
+                <button class="btn btn-secondary" id="continueBtn" type="button">Continue</button>
             </div>
         </div>
     </div>
@@ -581,7 +634,9 @@
     const messageEl = document.getElementById('message');
     const startBtn = document.getElementById('startBtn');
     const restartBtn = document.getElementById('restartBtn');
+    const continueBtn = document.getElementById('continueBtn');
     const gameOverEl = document.getElementById('gameOver');
+    const bannerMessageEl = document.getElementById('bannerMessage');
     const gameAreaEl = document.querySelector('.game-area');
     const finalScoreEl = document.getElementById('finalScore');
     const xpGainedEl = document.getElementById('xpGained');
@@ -596,6 +651,7 @@
     let playerSequence = [];
     let level = 1;
     let score = 0;
+    let personalBest = 0;
     let isPlaying = false;
     let isShowingSequence = false;
     let sessionId = null;
@@ -683,6 +739,26 @@
         oscillator.stop(audioCtx.currentTime + 0.5);
     }
 
+    function playTapBlip() {
+        if (!isSoundEnabled()) return;
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.04);
+        osc.frequency.exponentialRampToValueAtTime(660, now + 0.12);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(0.22, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.15);
+    }
+
     function playDing() {
         if (!isSoundEnabled()) return;
         if (!audioCtx) return;
@@ -710,15 +786,16 @@
         osc2.stop(start + 0.28);
     }
 
-    function showTileProgressPop(cell, value) {
+    function showTileProgressPop(cell, value, isHighScore) {
         if (!cell) return;
 
         const pop = document.createElement('span');
         pop.className = 'tile-progress-pop';
+        const rainbowClass = isHighScore ? ' rainbow' : '';
         const svgPath = 'M12 2C12 6.627 17.373 12 24 12C17.373 12 12 17.373 12 24C12 17.373 6.627 12 0 12C6.627 12 12 6.627 12 2Z';
         pop.innerHTML = `
             <svg class="tile-sparkle sp-1" viewBox="0 0 24 24" fill="none"><path d="${svgPath}" fill="currentColor"/></svg>
-            <span class="pop-text">+${value}</span>
+            <span class="pop-text${rainbowClass}">+${value}</span>
             <svg class="tile-sparkle sp-2" viewBox="0 0 24 24" fill="none"><path d="${svgPath}" fill="currentColor"/></svg>
             <svg class="tile-sparkle sp-3" viewBox="0 0 24 24" fill="none"><path d="${svgPath}" fill="currentColor"/></svg>
         `;
@@ -806,6 +883,9 @@
         isPlaying = false;
         gameOverEl.classList.remove('show');
         startBtn.style.display = 'inline-block';
+        if (gameAreaEl) {
+            gameAreaEl.style.display = 'block';
+        }
         if (adminStartPanelEl) {
             adminStartPanelEl.style.display = 'flex';
         }
@@ -813,26 +893,75 @@
         messageEl.textContent = '';
         updateGridSpin();
     }
+
+    function resetResultBannerState() {
+        gameOverEl.classList.remove(
+            'show',
+            'outcome-success',
+            'outcome-neutral',
+            'outcome-failure'
+        );
+        if (bannerMessageEl) {
+            bannerMessageEl.textContent = 'Game Over!';
+        }
+    }
+
+    function applyResultOutcome(outcome) {
+        const normalized = (outcome === 'success' || outcome === 'failure') ? outcome : 'neutral';
+        gameOverEl.classList.remove(
+            'show',
+            'outcome-success',
+            'outcome-neutral',
+            'outcome-failure'
+        );
+        gameOverEl.classList.add(`outcome-${normalized}`);
+
+        if (bannerMessageEl) {
+            if (normalized === 'success') {
+                bannerMessageEl.textContent = 'New Personal Best!';
+            } else if (normalized === 'failure') {
+                bannerMessageEl.textContent = 'Run Not Counted';
+            } else {
+                bannerMessageEl.textContent = 'Run Complete';
+            }
+        }
+
+        gameOverEl.classList.add('show');
+    }
     // ---------------------------
 
     async function startGame() {
         // Initialize audio context on first user interaction to bypass browser autoplay policies
         initAudio();
         const adminStartScore = getAdminStartScore();
+        if (gameAreaEl) {
+            gameAreaEl.style.display = 'block';
+        }
+        sessionId = null;
+        personalBest = null;
 
         const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
 
         if (isAuthenticated) {
-            const res = await fetch('/api/session/start', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken,
-                },
-                body: JSON.stringify({ game_slug: 'sequence-memory', difficulty: 1 })
-            });
-            const data = await res.json();
-            sessionId = data.session_id;
+            try {
+                const res = await fetch('/api/session/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify({ game_slug: 'sequence-memory', difficulty: 1 })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    sessionId = data.session_id;
+                    const parsedBest = Number(data.personal_best);
+                    personalBest = Number.isFinite(parsedBest) ? parsedBest : null;
+                }
+            } catch (err) {
+                sessionId = null;
+                personalBest = null;
+            }
         }
 
         clearIntroHint();
@@ -854,7 +983,7 @@
         if (adminStartPanelEl) {
             adminStartPanelEl.style.display = 'none';
         }
-        gameOverEl.classList.remove('show');
+        resetResultBannerState();
 
         nextRound();
     }
@@ -912,7 +1041,7 @@
 
         if (playerSequence[currentIndex] === sequence[currentIndex]) {
             cell.classList.add('correct');
-            playTone(currentIndex); // Play tone on correct tap
+            playTapBlip();
             setTimeout(() => cell.classList.remove('correct'), 200);
 
             if (playerSequence.length === sequence.length) {
@@ -922,7 +1051,7 @@
                 // during the between-round delay when thresholds are crossed.
                 isShowingSequence = true;
                 updateGridSpin();
-                showTileProgressPop(cell, score);
+                showTileProgressPop(cell, score, score > personalBest);
                 playDing();
                 setTimeout(nextRound, 1000);
             }
@@ -955,35 +1084,60 @@
         updateGridSpin();
         messageEl.textContent = '';
         const avgResponseTimeMs = getAverageResponseTimeMs();
+        let outcome = 'neutral';
 
         const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
 
-    if (isAuthenticated && sessionId) {
-        const res = await fetch(`/api/session/${sessionId}/end`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken,
-            },
-            body: JSON.stringify({
-                score: score,
-                accuracy: score > 0 ? 1.0 : 0,
-                rounds_completed: score,
-                avg_response_time_ms: avgResponseTimeMs,
-                raw_data: {
-                    response_samples: responseTimesMs.length
+        if (isAuthenticated && sessionId) {
+            try {
+                const res = await fetch(`/api/session/${sessionId}/end`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify({
+                        score: score,
+                        accuracy: score > 0 ? 1.0 : 0,
+                        rounds_completed: score,
+                        avg_response_time_ms: avgResponseTimeMs,
+                        raw_data: {
+                            response_samples: responseTimesMs.length
+                        }
+                    })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    outcome = 'failure';
+                    if (xpGainedEl) {
+                        xpGainedEl.innerHTML = '';
+                    }
+                } else if (xpGainedEl) {
+                    const tmpl = document.getElementById('neuronSvgTemplate');
+                    xpGainedEl.innerHTML = `+${data.xp_earned} ${tmpl ? tmpl.innerHTML : 'neurons'}`;
                 }
-            })
-        });
-        const data = await res.json();
-        if (xpGainedEl) {
-            const tmpl = document.getElementById('neuronSvgTemplate');
-            xpGainedEl.innerHTML = `+${data.xp_earned} ${tmpl ? tmpl.innerHTML : 'neurons'}`;
+            } catch (err) {
+                outcome = 'failure';
+                if (xpGainedEl) {
+                    xpGainedEl.innerHTML = '';
+                }
+            }
+        } else if (isAuthenticated && !sessionId) {
+            outcome = 'failure';
+            if (xpGainedEl) {
+                xpGainedEl.innerHTML = '';
+            }
         }
-    }
 
-    gameOverEl.classList.add('show');
-    finalScoreEl.textContent = score;
+        if (outcome !== 'failure' && isAuthenticated && Number.isFinite(personalBest) && score > personalBest) {
+            outcome = 'success';
+        }
+
+        finalScoreEl.textContent = score;
+        if (gameAreaEl) {
+            gameAreaEl.style.display = 'none';
+        }
+        applyResultOutcome(outcome);
     }
 
     cells.forEach((cell, index) => {
@@ -992,6 +1146,11 @@
 
     startBtn.addEventListener('click', startGame);
     restartBtn.addEventListener('click', isAdmin ? showAdminStartScreen : startGame);
+    if (continueBtn) {
+        continueBtn.addEventListener('click', () => {
+            window.location.href = "{{ url_for('problems') }}";
+        });
+    }
 
     if (adminForceRotationEl) {
         adminForceRotationEl.addEventListener('change', updateGridSpin);

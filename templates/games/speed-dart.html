@@ -204,38 +204,47 @@
     }
 
     .game-over-banner {
-        position: fixed;
-        bottom: -150px;
-        left: 0;
-        right: 0;
-        background: rgba(15, 23, 42, 0.95);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border-top: 1px solid rgba(148, 163, 184, 0.15);
-        box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
-        padding: 24px 20px;
-        z-index: 100;
-        transition: bottom 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
-        display: flex;
+        display: none;
+        width: 100%;
+        min-height: clamp(320px, 58vh, 560px);
+        margin-top: 12px;
+        padding: 28px 20px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(10, 14, 24, 0.96));
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38);
+        align-items: center;
         justify-content: center;
     }
 
     .game-over-banner.show {
-        bottom: 0;
+        display: flex;
+    }
+
+    .game-over-banner.outcome-success {
+        border-color: rgba(74, 222, 128, 0.45);
+    }
+
+    .game-over-banner.outcome-neutral {
+        border-color: rgba(148, 163, 184, 0.35);
+    }
+
+    .game-over-banner.outcome-failure {
+        border-color: rgba(248, 113, 113, 0.55);
     }
 
     .banner-content {
-        max-width: 800px;
+        max-width: 760px;
         width: 100%;
         display: flex;
-        justify-content: space-between;
+        flex-direction: column;
         align-items: center;
-        flex-wrap: wrap;
-        gap: 20px;
+        text-align: center;
+        gap: 22px;
     }
 
     .banner-stats {
-        text-align: left;
+        text-align: center;
     }
 
     .banner-stats h2 {
@@ -264,6 +273,32 @@
         display: flex;
         gap: 12px;
         align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .retry-meta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .retry-cost {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(248, 113, 113, 0.45);
+        background: rgba(127, 29, 29, 0.24);
+        color: #fecaca;
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+
+    .retry-sigma {
+        color: #ff2a55;
+        font-weight: 800;
     }
 
     @media (max-width: 640px) {
@@ -354,7 +389,11 @@
                 {% if not current_user.is_authenticated %}
                 <a href="{{ url_for('register') }}" class="btn btn-secondary">Sign Up to Save</a>
                 {% endif %}
-                <button class="btn btn-primary" id="restartBtn">Try Again</button>
+                <div class="retry-meta">
+                    <button class="btn btn-primary" id="restartBtn">Try Again</button>
+                    <span class="retry-cost">Cost <span class="retry-sigma">&#963;</span>1</span>
+                </div>
+                <button class="btn btn-secondary" id="continueBtn" type="button">Continue</button>
             </div>
         </div>
     </div>
@@ -376,6 +415,8 @@
     const strikeMarks = Array.from(strikeRowEl.querySelectorAll('.strike-mark'));
     const startBtnEl = document.getElementById('startBtn');
     const restartBtnEl = document.getElementById('restartBtn');
+    const continueBtnEl = document.getElementById('continueBtn');
+    const bannerMessageEl = document.getElementById('bannerMessage');
     const finalScoreEl = document.getElementById('finalScore');
     const resultDetailEl = document.getElementById('resultDetail');
     const xpGainedEl = document.getElementById('xpGained');
@@ -426,6 +467,7 @@
     let score = 0;
     let round = 1;
     let strikes = 0;
+    let personalBest = null;
     let requiredTargetKeysThisRound = [];
     let remainingTargetKeysThisRound = [];
     let shownAtMs = 0;
@@ -525,6 +567,41 @@
             clearInterval(timerTickId);
             timerTickId = null;
         }
+    }
+
+    function resetResultBannerState() {
+        gameOverEl.classList.remove(
+            'show',
+            'outcome-success',
+            'outcome-neutral',
+            'outcome-failure'
+        );
+        if (bannerMessageEl) {
+            bannerMessageEl.textContent = 'Game Over!';
+        }
+    }
+
+    function applyResultOutcome(outcome) {
+        const normalized = (outcome === 'success' || outcome === 'failure') ? outcome : 'neutral';
+        gameOverEl.classList.remove(
+            'show',
+            'outcome-success',
+            'outcome-neutral',
+            'outcome-failure'
+        );
+        gameOverEl.classList.add(`outcome-${normalized}`);
+
+        if (bannerMessageEl) {
+            if (normalized === 'success') {
+                bannerMessageEl.textContent = 'New Personal Best!';
+            } else if (normalized === 'failure') {
+                bannerMessageEl.textContent = 'Run Not Counted';
+            } else {
+                bannerMessageEl.textContent = 'Run Complete';
+            }
+        }
+
+        gameOverEl.classList.add('show');
     }
 
     function getRoundTimeLimitMs(roundNumber = round) {
@@ -700,7 +777,9 @@
     }
 
     async function startSession() {
-        if (!isAuthenticated) return null;
+        if (!isAuthenticated) {
+            return { ok: true, sessionId: null, personalBest: null };
+        }
         try {
             const res = await fetch('/api/session/start', {
                 method: 'POST',
@@ -710,15 +789,28 @@
                 },
                 body: JSON.stringify({ game_slug: GAME_SLUG, difficulty: 1 }),
             });
-            const data = await res.json();
-            return data.session_id || null;
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                return { ok: false, sessionId: null, personalBest: null, error: data.error || 'Session start failed.' };
+            }
+            const parsedBest = Number(data.personal_best);
+            return {
+                ok: true,
+                sessionId: data.session_id || null,
+                personalBest: Number.isFinite(parsedBest) ? parsedBest : null,
+            };
         } catch (err) {
-            return null;
+            return { ok: false, sessionId: null, personalBest: null, error: 'Network issue while starting session.' };
         }
     }
 
     async function endSession(reason) {
-        if (!isAuthenticated || !sessionId) return;
+        if (!isAuthenticated) {
+            return { ok: true };
+        }
+        if (!sessionId) {
+            return { ok: false, error: 'Session could not be recorded.' };
+        }
         try {
             const res = await fetch(`/api/session/${sessionId}/end`, {
                 method: 'POST',
@@ -745,15 +837,23 @@
                     },
                 }),
             });
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                if (xpGainedEl) {
+                    xpGainedEl.innerHTML = '';
+                }
+                return { ok: false, error: data.error || 'Session could not be recorded.' };
+            }
             if (xpGainedEl) {
                 const tmpl = document.getElementById('neuronSvgTemplate');
                 xpGainedEl.innerHTML = `+${data.xp_earned} ${tmpl ? tmpl.innerHTML : 'neurons'}`;
             }
+            return { ok: true };
         } catch (err) {
             if (xpGainedEl) {
                 xpGainedEl.innerHTML = '';
             }
+            return { ok: false, error: 'Network issue while saving run.' };
         }
     }
 
@@ -762,7 +862,9 @@
         isPlaying = true;
         awaitingPick = false;
         gameEnded = false;
-        sessionId = await startSession();
+        const sessionState = await startSession();
+        sessionId = sessionState.sessionId;
+        personalBest = sessionState.personalBest;
         score = 0;
         round = 1;
         strikes = 0;
@@ -788,7 +890,8 @@
         clearArena();
         targetPreviewEl.innerHTML = '';
 
-        gameOverEl.classList.remove('show');
+        resetResultBannerState();
+        gamePanelEl.style.display = 'block';
         startBtnEl.style.display = 'none';
         timerTickId = setInterval(updateRoundTimerVisual, ROUND_TIMER_TICK_MS);
         updateRoundTimerVisual();
@@ -808,14 +911,29 @@
 
         finalScoreEl.textContent = String(score);
         resultDetailEl.textContent = `Rounds ${Math.max(0, round - 1)} | Accuracy ${(getAccuracy() * 100).toFixed(0)}%`;
-        gameOverEl.classList.add('show');
+        gamePanelEl.style.display = 'none';
 
-        await endSession(reason);
+        const saveResult = await endSession(reason);
+        let outcome = 'neutral';
+        if (!saveResult.ok) {
+            outcome = 'failure';
+            resultDetailEl.textContent = saveResult.error || 'Session could not be recorded.';
+        } else if (isAuthenticated && Number.isFinite(personalBest) && score > personalBest) {
+            outcome = 'success';
+        }
+        applyResultOutcome(outcome);
+
+        return;
     }
 
     startBtnEl.addEventListener('click', startGame);
     if (restartBtnEl) {
         restartBtnEl.addEventListener('click', startGame);
+    }
+    if (continueBtnEl) {
+        continueBtnEl.addEventListener('click', () => {
+            window.location.href = "{{ url_for('problems') }}";
+        });
     }
 
     updateScoreHud();
