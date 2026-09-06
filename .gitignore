@@ -12,6 +12,12 @@ venv/
 
 # Database
 instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Runtime output
+*.log
 
 # IDE
 .vscode/

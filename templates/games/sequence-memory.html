@@ -282,13 +282,40 @@
     }
 
     @keyframes rainbow-cycle {
-        0%   { color: #ff0000; text-shadow: 0 0 12px rgba(255, 0, 0, 0.7); }
-        16%  { color: #ff8800; text-shadow: 0 0 12px rgba(255, 136, 0, 0.7); }
-        33%  { color: #ffdd00; text-shadow: 0 0 12px rgba(255, 221, 0, 0.7); }
-        50%  { color: #00cc44; text-shadow: 0 0 12px rgba(0, 204, 68, 0.7); }
-        66%  { color: #0088ff; text-shadow: 0 0 12px rgba(0, 136, 255, 0.7); }
-        83%  { color: #aa00ff; text-shadow: 0 0 12px rgba(170, 0, 255, 0.7); }
-        100% { color: #ff0000; text-shadow: 0 0 12px rgba(255, 0, 0, 0.7); }
+        0% {
+            color: #ff0000;
+            text-shadow: 0 0 12px rgba(255, 0, 0, 0.7);
+        }
+
+        16% {
+            color: #ff8800;
+            text-shadow: 0 0 12px rgba(255, 136, 0, 0.7);
+        }
+
+        33% {
+            color: #ffdd00;
+            text-shadow: 0 0 12px rgba(255, 221, 0, 0.7);
+        }
+
+        50% {
+            color: #00cc44;
+            text-shadow: 0 0 12px rgba(0, 204, 68, 0.7);
+        }
+
+        66% {
+            color: #0088ff;
+            text-shadow: 0 0 12px rgba(0, 136, 255, 0.7);
+        }
+
+        83% {
+            color: #aa00ff;
+            text-shadow: 0 0 12px rgba(170, 0, 255, 0.7);
+        }
+
+        100% {
+            color: #ff0000;
+            text-shadow: 0 0 12px rgba(255, 0, 0, 0.7);
+        }
     }
 
     .tile-progress-pop .pop-text {
@@ -420,6 +447,8 @@
         min-height: clamp(320px, 58vh, 560px);
         margin-top: 12px;
         padding: 28px 20px;
+        position: relative;
+        overflow: hidden;
         border: 1px solid rgba(148, 163, 184, 0.28);
         border-radius: 16px;
         background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(10, 14, 24, 0.96));
@@ -458,25 +487,53 @@
         text-align: center;
     }
 
-    .banner-stats h2 {
-        color: var(--text-strong);
-        font-size: 1.5rem;
-        margin: 0 0 5px 0;
+    .banner-message {
+        position: relative;
+        display: inline-block;
+        letter-spacing: 0.01em;
+        will-change: transform, opacity, filter;
     }
 
-    .score-details {
-        color: var(--text-muted);
-        font-size: 1.05rem;
+    .banner-message-entrance {
+        animation: banner-message-in 0.46s cubic-bezier(0.22, 0.85, 0.24, 1) both;
     }
 
-    .score-details span#finalScore {
-        color: var(--accent);
-        font-weight: 700;
-        font-size: 1.2rem;
+    @keyframes banner-message-in {
+        0% {
+            opacity: 0;
+            transform: translateY(12px) scale(0.96);
+            filter: blur(4px);
+            letter-spacing: 0.08em;
+        }
+
+        100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            filter: blur(0);
+            letter-spacing: 0.01em;
+        }
+    }
+
+    .banner-message-success {
+        background: linear-gradient(90deg, #d8b4fe 0%, #f5d0fe 40%, #c4b5fd 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 0 0 rgba(232, 121, 249, 0);
+    }
+
+    .banner-message-neutral {
+        color: #e0e7ff;
+        text-shadow: 0 0 0 rgba(148, 163, 184, 0);
+    }
+
+    .banner-message-failure {
+        color: #fecaca;
+        text-shadow: 0 0 10px rgba(248, 113, 113, 0.2);
     }
 
     .xp-text {
-        color: #4ade80;
+        color: #c084fc;
         font-weight: 600;
     }
 
@@ -562,7 +619,268 @@
             text-align: center;
         }
     }
+
+    /* Success Choreography Animations */
+    @keyframes choreo-fade-out {
+        from {
+            opacity: 1;
+        }
+
+        to {
+            opacity: 0;
+        }
+    }
+
+    @keyframes choreo-slide-up-bounce {
+        0% {
+            opacity: 0;
+            transform: translateY(40px);
+        }
+
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes choreo-scale-bounce {
+        0% {
+            opacity: 0;
+            transform: scale(0.6);
+        }
+
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    .game-area.choreo-fade {
+        animation: choreo-fade-out 0.2s ease forwards;
+        pointer-events: none;
+    }
+
+    .game-over-banner.choreo-slide {
+        animation: choreo-slide-up-bounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    /* Streak Bolt CSS */
+    .electric-flicker {
+        transform-origin: bottom center;
+        animation: e-flicker 0.8s infinite alternate ease-in-out;
+    }
+
+    @keyframes e-flicker {
+        0% {
+            transform: scaleY(0.9) skewX(-2deg);
+            opacity: 0.85;
+        }
+
+        100% {
+            transform: scaleY(1.05) skewX(2deg);
+            opacity: 1;
+        }
+    }
+
+    .e-spark-float {
+        transform-origin: center;
+        opacity: 0;
+        animation: spark-drift 4s infinite ease-out;
+    }
+
+    .e-spark-delay-1 {
+        animation-delay: 1.5s;
+    }
+
+    .e-spark-delay-2 {
+        animation-delay: 3s;
+    }
+
+    .electric-inner-bolt {
+        opacity: 0.55;
+        transform-box: fill-box;
+        transform-origin: center;
+        transform: scale(0.85);
+    }
+
+    @keyframes spark-drift {
+        0% {
+            transform: translate(0, 0) scale(0.5);
+            opacity: 0;
+            filter: drop-shadow(0 0 2px currentColor);
+        }
+
+        20% {
+            opacity: 0.9;
+            transform: translate(-2px, -6px) scale(1.1);
+        }
+
+        80% {
+            opacity: 0.9;
+        }
+
+        100% {
+            transform: translate(4px, -24px) scale(0);
+            opacity: 0;
+        }
+    }
+
+    .choreo-visible-inline-flex {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        display: inline-flex !important;
+        animation: choreo-fade-in 0.3s ease forwards;
+    }
+
+    .choreo-scale-pop {
+        animation: choreo-scale-bounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        display: block !important;
+    }
+
+    .xp-text .neuron-icon-large {
+        width: 44px !important;
+        height: 44px !important;
+        margin-right: 4px;
+        vertical-align: middle;
+    }
+
+    /* Particle system for odometer neurons */
+    .floating-neuron-particle {
+        position: absolute;
+        pointer-events: none;
+        z-index: 10;
+    }
+
+    .pb-burst-layer {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 12;
+    }
+
+    .pb-neuron-particle {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 13px;
+        height: 13px;
+        color: #c084fc;
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.4);
+        animation: pb-neuron-burst var(--pb-dur, 1.2s) ease-out forwards;
+    }
+
+    .pb-neuron-particle svg {
+        overflow: visible;
+        filter: drop-shadow(0 0 5px rgba(216, 180, 254, 0.45));
+    }
+
+    @keyframes pb-neuron-burst {
+        0% {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.45) rotate(var(--pb-rot-start, 0deg));
+            filter: drop-shadow(0 0 0 rgba(232, 121, 249, 0));
+        }
+
+        14% {
+            opacity: 1;
+            filter: drop-shadow(0 0 8px rgba(232, 121, 249, 0.55));
+        }
+
+        100% {
+            opacity: 0;
+            transform: translate(calc(-50% + var(--pb-x, 0px)), calc(-50% + var(--pb-y, 0px))) scale(0.18) rotate(var(--pb-rot-end, 0deg));
+            filter: drop-shadow(0 0 0 rgba(232, 121, 249, 0));
+        }
+    }
+
+    .game-over-banner.pb-gold-pulse {
+        animation: pb-border-pulse 0.82s ease-out;
+    }
+
+    @keyframes pb-border-pulse {
+        0% {
+            border-color: rgba(251, 191, 36, 0.9);
+            box-shadow: 0 0 0 rgba(245, 158, 11, 0), 0 14px 34px rgba(0, 0, 0, 0.38);
+        }
+
+        42% {
+            border-color: rgba(251, 191, 36, 0.95);
+            box-shadow: 0 0 24px rgba(245, 158, 11, 0.45), 0 14px 34px rgba(0, 0, 0, 0.38);
+        }
+
+        100% {
+            border-color: rgba(74, 222, 128, 0.45);
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38);
+        }
+    }
+
+    .banner-message-pb {
+        animation: pb-text-throb 0.82s ease-out;
+    }
+
+    .banner-message-neutral-wave {
+        animation: banner-neutral-wave 0.8s ease-out;
+    }
+
+    .banner-message-failure-hit {
+        animation: banner-failure-hit 0.48s ease-out;
+    }
+
+    @keyframes banner-neutral-wave {
+        0% {
+            text-shadow: 0 0 0 rgba(147, 197, 253, 0);
+            transform: translateY(0);
+        }
+
+        45% {
+            text-shadow: 0 0 10px rgba(147, 197, 253, 0.34);
+            transform: translateY(-1px);
+        }
+
+        100% {
+            text-shadow: 0 0 0 rgba(147, 197, 253, 0);
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes banner-failure-hit {
+        0% {
+            opacity: 0.8;
+            transform: translateY(1px) scale(0.985);
+        }
+
+        45% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    @keyframes pb-text-throb {
+        0% {
+            text-shadow: 0 0 0 rgba(245, 158, 11, 0);
+            color: var(--text-strong);
+        }
+
+        45% {
+            text-shadow: 0 0 12px rgba(245, 158, 11, 0.65);
+            color: #fef3c7;
+        }
+
+        100% {
+            text-shadow: 0 0 0 rgba(245, 158, 11, 0);
+            color: var(--text-strong);
+        }
+    }
 </style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/finish-flow.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -601,45 +919,27 @@
         <button class="btn btn-primary btn-start" id="startBtn">Start</button>
     </div>
 
-    <div class="game-over-banner" id="gameOver">
-        <div class="banner-content">
-            <div class="banner-stats">
-                <h2 id="bannerMessage">Game Over!</h2>
-                <div class="score-details">
-                    <span id="finalScore">0</span> sequences completed
-                    {% if current_user.is_authenticated %}
-                    • <span id="xpGained" class="xp-text"></span>
-                    {% endif %}
-                </div>
-            </div>
-            <div class="banner-actions">
-                {% if not current_user.is_authenticated %}
-                <a href="{{ url_for('register') }}" class="btn btn-secondary">Sign Up to Save</a>
-                {% endif %}
-                <div class="retry-meta">
-                    <button class="btn btn-primary" id="restartBtn">Try Again</button>
-                    <span class="retry-cost">Cost <span class="retry-sigma">&#963;</span>1</span>
-                </div>
-                <button class="btn btn-secondary" id="continueBtn" type="button">Continue</button>
-            </div>
-        </div>
-    </div>
+    {% include 'games/includes/finish-overlay.html' %}
 </div>
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/finish-flow.js') }}"></script>
 <script>
     const cells = document.querySelectorAll('.cell');
     const gridEl = document.getElementById('grid');
     const messageEl = document.getElementById('message');
     const startBtn = document.getElementById('startBtn');
-    const restartBtn = document.getElementById('restartBtn');
     const continueBtn = document.getElementById('continueBtn');
+    const rewardContinueBtn = document.getElementById('rewardContinueBtn');
     const gameOverEl = document.getElementById('gameOver');
+    const summaryContentEl = document.getElementById('summaryContent');
+    const rewardScreenEl = document.getElementById('rewardScreen');
+    const rewardScreenNeuronsEl = document.getElementById('rewardScreenNeurons');
+    const rewardScreenUnitIconEl = document.getElementById('rewardScreenUnitIcon');
     const bannerMessageEl = document.getElementById('bannerMessage');
     const gameAreaEl = document.querySelector('.game-area');
     const finalScoreEl = document.getElementById('finalScore');
-    const xpGainedEl = document.getElementById('xpGained');
     const adminStartPanelEl = document.getElementById('adminStartPanel');
     const adminStartScoreEl = document.getElementById('adminStartScore');
     const adminForceRotationEl = document.getElementById('adminForceRotation');
@@ -655,11 +955,13 @@
     let isPlaying = false;
     let isShowingSequence = false;
     let sessionId = null;
+    let rewardedNeurons = 0;
     let spinCounterClockwise = false;
     let responseTimesMs = [];
     let responsePhaseLastInputAt = 0;
     let introHintTimeoutId = null;
     let isFirstRound = true;
+    let isNextRewardActive = false;
     const INTRO_HINT_DELAY_MS = 2000;
     const SPIN_BASE_DURATION_SECONDS = 105;
     const SPIN_REDUCTION_PER_LEVEL = 7;
@@ -667,6 +969,9 @@
     const SPIN_START_LEVEL = 5;
     const globalAudio = window.SynapyAudio || null;
     const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    const prefersReducedMotion = Boolean(
+        window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
 
     function clearIntroHint() {
         if (introHintTimeoutId) {
@@ -786,6 +1091,68 @@
         osc2.stop(start + 0.28);
     }
 
+    function playVictoryFanfare() {
+        if (!isSoundEnabled()) return;
+        initAudio();
+        if (!audioCtx) return;
+
+        const now = audioCtx.currentTime + 0.01;
+
+        // Quick 8-bit power-up burst (~300ms total)
+        const master = audioCtx.createGain();
+        master.gain.setValueAtTime(0.32, now);
+        master.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+        master.connect(audioCtx.destination);
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.exponentialRampToValueAtTime(1760, now + 0.18);
+        osc.frequency.setValueAtTime(1760, now + 0.22);
+        osc.frequency.exponentialRampToValueAtTime(2093, now + 0.30);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(0.20, now + 0.01);
+        gain.gain.setValueAtTime(0.20, now + 0.22);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+        osc.connect(gain);
+        gain.connect(master);
+        osc.start(now);
+        osc.stop(now + 0.36);
+
+        // Bright shimmer layer
+        const shimmer = audioCtx.createOscillator();
+        const shimGain = audioCtx.createGain();
+        shimmer.type = 'sine';
+        shimmer.frequency.setValueAtTime(880, now + 0.04);
+        shimmer.frequency.exponentialRampToValueAtTime(3520, now + 0.20);
+        shimGain.gain.setValueAtTime(0.0001, now + 0.04);
+        shimGain.gain.linearRampToValueAtTime(0.09, now + 0.06);
+        shimGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.30);
+        shimmer.connect(shimGain);
+        shimGain.connect(master);
+        shimmer.start(now + 0.04);
+        shimmer.stop(now + 0.32);
+    }
+
+    function playFailureThud() {
+        if (!isSoundEnabled()) return;
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(100, now);
+        osc.frequency.exponentialRampToValueAtTime(78, now + 0.2);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.17, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.26);
+    }
+
     function showTileProgressPop(cell, value, isHighScore) {
         if (!cell) return;
 
@@ -834,6 +1201,31 @@
         return Math.round(total / responseTimesMs.length);
     }
 
+    const finishFlow = window.createFinishFlow({
+        gameOverEl,
+        summaryContentEl,
+        rewardScreenEl,
+        rewardScreenNeuronsEl,
+        rewardScreenUnitIconEl,
+        bannerMessageEl: document.getElementById('bannerMessage'),
+        scoreDetailsEl: document.getElementById('scoreDetails'),
+        bannerActionsEl: document.getElementById('bannerActions'),
+        finalScoreEl,
+        continueBtnEl: continueBtn,
+        rewardContinueBtnEl: rewardContinueBtn,
+        showClasses: ['show', 'choreo-slide'],
+        redirectUrl: "{{ url_for('problems') }}",
+        getSoundEnabled: () => isSoundEnabled(),
+        ensureAudioContext: () => {
+            initAudio();
+            return audioCtx || null;
+        },
+    });
+
+    function normalizeRewardNeurons(value) {
+        return finishFlow.normalizeRewardValue(value);
+    }
+
     function getAdminRotationSeconds() {
         if (!isAdmin || !adminRotationSecondsEl) return SPIN_BASE_DURATION_SECONDS;
         const raw = Number.parseInt(adminRotationSecondsEl.value, 10);
@@ -880,8 +1272,10 @@
             return;
         }
 
+        clearChoreographyTimers();
         isPlaying = false;
-        gameOverEl.classList.remove('show');
+        gameOverEl.classList.remove('show', 'choreo-slide');
+        gameAreaEl.classList.remove('choreo-fade');
         startBtn.style.display = 'inline-block';
         if (gameAreaEl) {
             gameAreaEl.style.display = 'block';
@@ -895,38 +1289,177 @@
     }
 
     function resetResultBannerState() {
-        gameOverEl.classList.remove(
-            'show',
-            'outcome-success',
-            'outcome-neutral',
-            'outcome-failure'
-        );
-        if (bannerMessageEl) {
-            bannerMessageEl.textContent = 'Game Over!';
+        isNextRewardActive = false;
+        finishFlow.reset({
+            removeShowClasses: ['show', 'choreo-slide', 'outcome-success', 'outcome-neutral', 'outcome-failure', 'pb-gold-pulse'],
+            onReset: function () {
+                document.querySelectorAll('.floating-neuron-particle').forEach(function (n) { n.remove(); });
+                document.querySelectorAll('.pb-burst-layer').forEach(function (n) { n.remove(); });
+            }
+        });
+    }
+
+    function clearChoreographyTimers() {
+        finishFlow.clearTimers();
+        document.querySelectorAll('.floating-neuron-particle').forEach(function (n) { n.remove(); });
+        document.querySelectorAll('.pb-burst-layer').forEach(function (n) { n.remove(); });
+    }
+
+    function scheduleChoreography(callback, delayMs) {
+        return finishFlow.schedule(callback, delayMs);
+    }
+
+    function triggerSuccessChoreography(finalScore) {
+        finishFlow.showSummary(finalScore, {
+            onBeforePrepare: function () {
+                gameOverEl.classList.remove('outcome-success', 'outcome-neutral', 'outcome-failure', 'pb-gold-pulse');
+                if (gameAreaEl) {
+                    gameAreaEl.classList.add('choreo-fade');
+                    finishFlow.schedule(function () {
+                        gameAreaEl.style.display = 'none';
+                    }, 200);
+                }
+            },
+            onPrepared: function () {
+                if (bannerMessageEl) {
+                    bannerMessageEl.classList.add('banner-message-neutral');
+                }
+            }
+        });
+    }
+
+    function spawnOdometerNeuron(parentElement) {
+        const svg = document.createElement('div');
+        svg.className = 'floating-neuron-particle';
+        svg.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 36 36">
+                <!-- simplified soma + nucleus -->
+                <circle cx="18" cy="18" r="8" fill="rgba(124, 58, 237, 0.4)" />
+                <circle cx="18" cy="18" r="5" fill="#e879f9" />
+            </svg>
+        `;
+        // random start offset
+        const startX = (Math.random() - 0.5) * 40;
+        const targetY = - (40 + Math.random() * 60);
+
+        svg.style.left = `calc(50% + ${startX}px)`;
+        svg.style.top = '-10px'; // relative to parent
+        // basic float animation
+        svg.style.transition = 'transform 1.2s ease-out, opacity 1s ease-out';
+        svg.style.transform = `translate(-50%, 0px)`;
+        svg.style.opacity = '0.9';
+
+        if (parentElement.parentNode) {
+            parentElement.parentNode.appendChild(svg);
+        }
+
+        // trigger animation
+        setTimeout(() => {
+            svg.style.transform = `translate(-50%, ${targetY}px) scale(0.6)`;
+            svg.style.opacity = '0';
+        }, 20); // slight delay to allow dom update
+
+        // cleanup
+        setTimeout(() => {
+            if (svg.parentNode) {
+                svg.parentNode.removeChild(svg);
+            }
+        }, 1250);
+    }
+
+    function triggerPersonalBestBurst() {
+        const burstLayer = document.createElement('div');
+        burstLayer.className = 'pb-burst-layer';
+        gameOverEl.appendChild(burstLayer);
+
+        const palette = ['#8b5cf6', '#a78bfa', '#c084fc', '#e879f9'];
+        const particleCount = 25;
+
+        for (let i = 0; i < particleCount; i++) {
+            const delay = i * 22;
+            scheduleChoreography(() => {
+                const particle = document.createElement('span');
+                particle.className = 'pb-neuron-particle';
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 80 + Math.random() * 120;
+                const x = Math.cos(angle) * distance;
+                const y = Math.sin(angle) * distance;
+                const duration = 0.8 + Math.random() * 0.8;
+                const size = 12 + Math.random() * 2.5;
+                const color = palette[Math.floor(Math.random() * palette.length)];
+                const rotStart = (Math.random() * 90) - 45;
+                const rotEnd = rotStart + ((Math.random() * 220) - 110);
+
+                particle.style.width = `${size.toFixed(1)}px`;
+                particle.style.height = `${size.toFixed(1)}px`;
+                particle.style.color = color;
+                particle.style.setProperty('--pb-x', `${x.toFixed(1)}px`);
+                particle.style.setProperty('--pb-y', `${y.toFixed(1)}px`);
+                particle.style.setProperty('--pb-dur', `${duration.toFixed(2)}s`);
+                particle.style.setProperty('--pb-rot-start', `${rotStart.toFixed(1)}deg`);
+                particle.style.setProperty('--pb-rot-end', `${rotEnd.toFixed(1)}deg`);
+                particle.innerHTML = `
+                    <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" aria-hidden="true">
+                        <g transform="translate(12 12)">
+                            <path d="M0 -8.2 L0 -4.4 M7.1 4.2 L3.7 2.1 M-7.1 4.2 L-3.7 2.1 M8.0 -1.4 L4.3 -0.9 M-8.0 -1.4 L-4.3 -0.9"
+                                stroke="currentColor" stroke-width="1.35" stroke-linecap="round" opacity="0.72"></path>
+                            <circle cx="0" cy="-8.2" r="1.45" fill="currentColor" opacity="0.92"></circle>
+                            <circle cx="7.1" cy="4.2" r="1.35" fill="currentColor" opacity="0.88"></circle>
+                            <circle cx="-7.1" cy="4.2" r="1.35" fill="currentColor" opacity="0.88"></circle>
+                            <circle cx="8.0" cy="-1.4" r="1.1" fill="currentColor" opacity="0.82"></circle>
+                            <circle cx="-8.0" cy="-1.4" r="1.1" fill="currentColor" opacity="0.82"></circle>
+                            <circle cx="0" cy="0" r="5.35" fill="rgba(24, 11, 44, 0.66)" stroke="currentColor" stroke-width="1.35"></circle>
+                            <circle cx="0" cy="0" r="2.25" fill="currentColor"></circle>
+                        </g>
+                    </svg>
+                `;
+                particle.addEventListener('animationend', () => particle.remove(), { once: true });
+                burstLayer.appendChild(particle);
+            }, delay);
+        }
+
+        scheduleChoreography(() => {
+            if (burstLayer.parentNode) {
+                burstLayer.parentNode.removeChild(burstLayer);
+            }
+        }, 2400);
+    }
+
+    function triggerNextRewardState() {
+        if (isNextRewardActive) return;
+        isNextRewardActive = true;
+
+        if (!summaryContentEl || !rewardScreenEl || !rewardScreenNeuronsEl) {
+            window.location.href = "{{ url_for('problems') }}";
+            return;
+        }
+
+        if (continueBtn) {
+            continueBtn.disabled = true;
+            continueBtn.textContent = 'Opening rewards...';
+        }
+        if (rewardContinueBtn) {
+            rewardContinueBtn.disabled = false;
+            rewardContinueBtn.textContent = 'Continue';
+        }
+
+        rewardScreenNeuronsEl.textContent = String(rewardedNeurons);
+        summaryContentEl.classList.add('choreo-hidden');
+        rewardScreenEl.className = 'reward-screen choreo-visible-flex';
+
+        gameOverEl.classList.add('pb-gold-pulse');
+        triggerPersonalBestBurst();
+        playVictoryFanfare();
+
+        if (!prefersReducedMotion) {
+            for (let i = 0; i < 6; i++) {
+                spawnOdometerNeuron(rewardScreenNeuronsEl);
+            }
         }
     }
 
-    function applyResultOutcome(outcome) {
-        const normalized = (outcome === 'success' || outcome === 'failure') ? outcome : 'neutral';
-        gameOverEl.classList.remove(
-            'show',
-            'outcome-success',
-            'outcome-neutral',
-            'outcome-failure'
-        );
-        gameOverEl.classList.add(`outcome-${normalized}`);
-
-        if (bannerMessageEl) {
-            if (normalized === 'success') {
-                bannerMessageEl.textContent = 'New Personal Best!';
-            } else if (normalized === 'failure') {
-                bannerMessageEl.textContent = 'Run Not Counted';
-            } else {
-                bannerMessageEl.textContent = 'Run Complete';
-            }
-        }
-
-        gameOverEl.classList.add('show');
+    function continueFromRewardScreen() {
+        finishFlow.continueFromReward();
     }
     // ---------------------------
 
@@ -935,6 +1468,7 @@
         initAudio();
         const adminStartScore = getAdminStartScore();
         if (gameAreaEl) {
+            gameAreaEl.classList.remove('choreo-fade');
             gameAreaEl.style.display = 'block';
         }
         sessionId = null;
@@ -942,50 +1476,50 @@
 
         const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
 
-        if (isAuthenticated) {
-            try {
-                const res = await fetch('/api/session/start', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken,
-                    },
-                    body: JSON.stringify({ game_slug: 'sequence-memory', difficulty: 1 })
-                });
-                const data = await res.json().catch(() => ({}));
-                if (res.ok) {
-                    sessionId = data.session_id;
-                    const parsedBest = Number(data.personal_best);
-                    personalBest = Number.isFinite(parsedBest) ? parsedBest : null;
-                }
-            } catch (err) {
-                sessionId = null;
-                personalBest = null;
+    if (isAuthenticated) {
+        try {
+            const res = await fetch('/api/session/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({ game_slug: 'sequence-memory', difficulty: 1 })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                sessionId = data.session_id;
+                const parsedBest = Number(data.personal_best);
+                personalBest = Number.isFinite(parsedBest) ? parsedBest : null;
             }
+        } catch (err) {
+            sessionId = null;
+            personalBest = null;
         }
+    }
 
-        clearIntroHint();
-        sequence = [];
-        playerSequence = [];
-        responseTimesMs = [];
-        responsePhaseLastInputAt = 0;
-        isFirstRound = true;
-        score = adminStartScore;
-        level = adminStartScore + 1;
-        for (let i = 0; i < adminStartScore; i++) {
-            sequence.push(Math.floor(Math.random() * 9));
-        }
-        isPlaying = true;
-        isShowingSequence = true;
-        updateGridSpin();
+    clearIntroHint();
+    sequence = [];
+    playerSequence = [];
+    responseTimesMs = [];
+    responsePhaseLastInputAt = 0;
+    isFirstRound = true;
+    score = adminStartScore;
+    level = adminStartScore + 1;
+    for (let i = 0; i < adminStartScore; i++) {
+        sequence.push(Math.floor(Math.random() * 9));
+    }
+    isPlaying = true;
+    isShowingSequence = true;
+    updateGridSpin();
 
-        startBtn.style.display = 'none';
-        if (adminStartPanelEl) {
-            adminStartPanelEl.style.display = 'none';
-        }
-        resetResultBannerState();
+    startBtn.style.display = 'none';
+    if (adminStartPanelEl) {
+        adminStartPanelEl.style.display = 'none';
+    }
+    resetResultBannerState();
 
-        nextRound();
+    nextRound();
     }
 
     function nextRound() {
@@ -1080,64 +1614,44 @@
     }
 
     async function endGame() {
+        clearChoreographyTimers();
         isPlaying = false;
         updateGridSpin();
         messageEl.textContent = '';
         const avgResponseTimeMs = getAverageResponseTimeMs();
-        let outcome = 'neutral';
+        rewardedNeurons = 0;
 
         const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
 
-        if (isAuthenticated && sessionId) {
-            try {
-                const res = await fetch(`/api/session/${sessionId}/end`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken,
-                    },
-                    body: JSON.stringify({
-                        score: score,
-                        accuracy: score > 0 ? 1.0 : 0,
-                        rounds_completed: score,
-                        avg_response_time_ms: avgResponseTimeMs,
-                        raw_data: {
-                            response_samples: responseTimesMs.length
-                        }
-                    })
-                });
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok) {
-                    outcome = 'failure';
-                    if (xpGainedEl) {
-                        xpGainedEl.innerHTML = '';
+    if (isAuthenticated && sessionId) {
+        try {
+            const res = await fetch(`/api/session/${sessionId}/end`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({
+                    score: score,
+                    accuracy: score > 0 ? 1.0 : 0,
+                    rounds_completed: score,
+                    avg_response_time_ms: avgResponseTimeMs,
+                    raw_data: {
+                        response_samples: responseTimesMs.length
                     }
-                } else if (xpGainedEl) {
-                    const tmpl = document.getElementById('neuronSvgTemplate');
-                    xpGainedEl.innerHTML = `+${data.xp_earned} ${tmpl ? tmpl.innerHTML : 'neurons'}`;
-                }
-            } catch (err) {
-                outcome = 'failure';
-                if (xpGainedEl) {
-                    xpGainedEl.innerHTML = '';
-                }
+                })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                rewardedNeurons = normalizeRewardNeurons(data.xp_earned);
             }
-        } else if (isAuthenticated && !sessionId) {
-            outcome = 'failure';
-            if (xpGainedEl) {
-                xpGainedEl.innerHTML = '';
-            }
+        } catch (err) {
+            // Keep the run completion UI path even if telemetry submission fails.
         }
+    }
 
-        if (outcome !== 'failure' && isAuthenticated && Number.isFinite(personalBest) && score > personalBest) {
-            outcome = 'success';
-        }
-
-        finalScoreEl.textContent = score;
-        if (gameAreaEl) {
-            gameAreaEl.style.display = 'none';
-        }
-        applyResultOutcome(outcome);
+    finalScoreEl.textContent = score;
+    triggerSuccessChoreography(score);
     }
 
     cells.forEach((cell, index) => {
@@ -1145,11 +1659,11 @@
     });
 
     startBtn.addEventListener('click', startGame);
-    restartBtn.addEventListener('click', isAdmin ? showAdminStartScreen : startGame);
     if (continueBtn) {
-        continueBtn.addEventListener('click', () => {
-            window.location.href = "{{ url_for('problems') }}";
-        });
+        continueBtn.addEventListener('click', triggerNextRewardState);
+    }
+    if (rewardContinueBtn) {
+        rewardContinueBtn.addEventListener('click', continueFromRewardScreen);
     }
 
     if (adminForceRotationEl) {

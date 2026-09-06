@@ -281,65 +281,153 @@
     {% block content %}{% endblock %}
 
     <template id="neuronSvgTemplate">
-        <svg class="neuron-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"
+        <svg class="neuron-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"
             style="width: 22px; height: 22px; vertical-align: middle; margin-left: 4px; overflow: visible; padding-bottom: 2px;">
+            <defs>
+                <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="#f0abfc" />
+                    <stop offset="50%" stop-color="#c084fc" />
+                    <stop offset="100%" stop-color="#7e22ce" stop-opacity="0" />
+                </radialGradient>
+                <linearGradient id="dendriteGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#a855f7" />
+                    <stop offset="100%" stop-color="#ec4899" />
+                </linearGradient>
+                <linearGradient id="ringGrad" x1="100%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#8b5cf6" />
+                    <stop offset="50%" stop-color="#d946ef" />
+                    <stop offset="100%" stop-color="#6366f1" />
+                </linearGradient>
+                <filter id="neonBlur" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="2" result="blur" />
+                    <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                </filter>
+                <filter id="intenseGlow">
+                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+            </defs>
             <style>
-                .n-core-pulse {
-                    animation: n-core-anim 2.5s ease-in-out infinite alternate;
+                .n-currency-float {
+                    animation: n-float-anim 3.5s ease-in-out infinite alternate;
                     transform-origin: center;
                 }
 
-                .n-float {
-                    animation: n-float-anim 4s ease-in-out infinite alternate;
+                .n-aura {
+                    animation: n-aura-pulse 2.5s ease-in-out infinite alternate;
+                    transform-origin: center;
                 }
 
-                .n-flow {
-                    stroke-dasharray: 4 6;
-                    animation: n-flow-anim 12s linear infinite;
+                .n-ring-spin {
+                    animation: n-ring-spin-anim 8s linear infinite;
+                    transform-origin: 24px 24px;
                 }
 
-                @keyframes n-core-anim {
-                    0% {
-                        filter: drop-shadow(0 0 2px #d8b4fe);
-                        transform: scale(0.9);
-                    }
-
-                    100% {
-                        filter: drop-shadow(0 0 6px #e879f9);
-                        transform: scale(1.1);
-                    }
+                .n-energy-flow {
+                    stroke-dasharray: 8 12;
+                    animation: n-flow-dash 3s linear infinite;
                 }
 
-                @keyframes n-flow-anim {
-                    to {
-                        stroke-dashoffset: -100;
-                    }
+                .n-core-beat {
+                    animation: n-beat 1.5s ease-in-out infinite alternate;
+                    transform-origin: 24px 24px;
+                }
+
+                .n-spark {
+                    animation: n-sparkle 2s ease-in-out infinite alternate;
+                    transform-origin: center;
                 }
 
                 @keyframes n-float-anim {
                     0% {
-                        transform: translateY(0.5px);
+                        transform: translateY(1px);
                     }
 
                     100% {
-                        transform: translateY(-1.5px);
+                        transform: translateY(-2px);
+                    }
+                }
+
+                @keyframes n-aura-pulse {
+                    0% {
+                        transform: scale(0.85);
+                        opacity: 0.4;
+                    }
+
+                    100% {
+                        transform: scale(1.15);
+                        opacity: 0.7;
+                    }
+                }
+
+                @keyframes n-ring-spin-anim {
+                    0% {
+                        transform: rotate(0deg);
+                    }
+
+                    100% {
+                        transform: rotate(360deg);
+                    }
+                }
+
+                @keyframes n-flow-dash {
+                    100% {
+                        stroke-dashoffset: -40;
+                    }
+                }
+
+                @keyframes n-beat {
+                    0% {
+                        transform: scale(0.9);
+                        filter: brightness(1) drop-shadow(0 0 2px #d8b4fe);
+                    }
+
+                    100% {
+                        transform: scale(1.1);
+                        filter: brightness(1.3) drop-shadow(0 0 6px #f0abfc);
+                    }
+                }
+
+                @keyframes n-sparkle {
+                    0% {
+                        opacity: 0.2;
+                        transform: scale(0.6);
+                    }
+
+                    100% {
+                        opacity: 1;
+                        transform: scale(1.2);
                     }
                 }
             </style>
-            <g class="n-float">
-                <circle cx="18" cy="17" r="10" fill="rgba(124, 58, 237, 0.15)" filter="blur(4px)" />
+            <g class="n-currency-float">
+                <circle cx="24" cy="24" r="14" fill="url(#coreGlow)" class="n-aura" />
+                <circle cx="24" cy="24" r="20" fill="none" stroke="url(#ringGrad)" stroke-width="1.5"
+                    stroke-dasharray="4 4" class="n-ring-spin" opacity="0.6" />
+                <circle cx="24" cy="24" r="22" fill="none" stroke="#6b21a8" stroke-width="0.5" opacity="0.4" />
                 <path
-                    d="M10 24 C8 28 6 30 4 30 M26 24 C28 28 30 30 32 30 M18 7 C18 4 20 2 22 2 M12 11 L8 7 M24 11 L28 7"
-                    stroke="#8b5cf6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" />
-                <path class="n-flow" d="M18 17 L18 7 M18 17 L10 24 M18 17 L26 24 M18 17 L12 11 M18 17 L24 11"
-                    stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round" />
-                <circle cx="18" cy="7" r="2" fill="#c084fc" />
-                <circle cx="10" cy="24" r="2.5" fill="#a78bfa" />
-                <circle cx="26" cy="24" r="2.5" fill="#a78bfa" />
-                <circle cx="12" cy="11" r="1.5" fill="#c084fc" />
-                <circle cx="24" cy="11" r="1.5" fill="#c084fc" />
-                <circle cx="18" cy="17" r="5.5" fill="#1e1b4b" stroke="#d8b4fe" stroke-width="1.8" />
-                <circle cx="18" cy="17" r="2.5" fill="#e879f9" class="n-core-pulse" />
+                    d="M24 8 L24 16 M24 40 L24 32 M8 24 L16 24 M40 24 L32 24 M12 12 L18 18 M36 36 L30 30 M12 36 L18 30 M36 12 L30 18"
+                    stroke="#581c87" stroke-width="2" stroke-linecap="round" />
+                <path class="n-energy-flow"
+                    d="M24 6 Q30 14 24 24 Q18 34 24 42 M6 24 Q14 18 24 24 Q34 30 42 24 M10 10 Q18 20 24 24 Q30 28 38 38"
+                    stroke="url(#dendriteGrad)" stroke-width="1.5" stroke-linecap="round" filter="url(#neonBlur)" />
+                <circle cx="24" cy="8" r="2.5" fill="#f472b6" class="n-spark" style="animation-delay: 0s;" />
+                <circle cx="24" cy="40" r="2.5" fill="#c084fc" class="n-spark" style="animation-delay: 0.3s;" />
+                <circle cx="8" cy="24" r="2.5" fill="#e879f9" class="n-spark" style="animation-delay: 0.6s;" />
+                <circle cx="40" cy="24" r="2.5" fill="#f472b6" class="n-spark" style="animation-delay: 0.9s;" />
+                <circle cx="12" cy="12" r="1.5" fill="#a855f7" class="n-spark" style="animation-delay: 0.2s;" />
+                <circle cx="36" cy="36" r="1.5" fill="#a855f7" class="n-spark" style="animation-delay: 0.5s;" />
+                <circle cx="12" cy="36" r="1.5" fill="#d946ef" class="n-spark" style="animation-delay: 0.8s;" />
+                <circle cx="36" cy="12" r="1.5" fill="#d946ef" class="n-spark" style="animation-delay: 1.1s;" />
+                <path d="M24 15 L28 20 L33 24 L28 28 L24 33 L20 28 L15 24 L20 20 Z" fill="#2e1065" stroke="#d8b4fe"
+                    stroke-width="1.5" filter="url(#neonBlur)" />
+                <path d="M24 17 L27 21 L30 24 L27 27 L24 31 L21 27 L18 24 L21 21 Z" fill="#4c1d95" opacity="0.8" />
+                <circle cx="24" cy="24" r="4" fill="#fdf4ff" stroke="#f0abfc" stroke-width="1.5" class="n-core-beat"
+                    filter="url(#intenseGlow)" />
+                <circle cx="24" cy="24" r="1.5" fill="#fff" />
             </g>
         </svg>
     </template>

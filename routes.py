@@ -257,6 +257,60 @@ def update_user_streak(user, played_at_utc):
     }
 
 
+def build_weekly_streak_view(user, now_utc=None):
+    streak_tz = get_streak_timezone(user=user)
+    now_utc = now_utc or datetime.utcnow()
+    if now_utc.tzinfo is None:
+        aware_now_utc = now_utc.replace(tzinfo=timezone.utc)
+    else:
+        aware_now_utc = now_utc.astimezone(timezone.utc)
+
+    local_today = aware_now_utc.astimezone(streak_tz).date()
+    week_start = local_today - timedelta(days=local_today.weekday())
+    week_end = week_start + timedelta(days=6)
+
+    week_start_local = datetime.combine(week_start, datetime.min.time(), tzinfo=streak_tz)
+    week_end_local_exclusive = week_start_local + timedelta(days=7)
+    week_start_utc = week_start_local.astimezone(timezone.utc).replace(tzinfo=None)
+    week_end_utc = week_end_local_exclusive.astimezone(timezone.utc).replace(tzinfo=None)
+
+    session_rows = db.session.query(GameSession.ended_at).filter(
+        GameSession.user_id == user.id,
+        GameSession.ended_at.isnot(None),
+        GameSession.ended_at >= week_start_utc,
+        GameSession.ended_at < week_end_utc,
+    ).all()
+
+    completed_dates = set()
+    for row in session_rows:
+        ended_at = row[0]
+        local_date = to_streak_local_date(ended_at, streak_tz)
+        if local_date is None:
+            continue
+        if week_start <= local_date <= week_end:
+            completed_dates.add(local_date)
+
+    short_labels = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
+    week_days = []
+    for offset in range(7):
+        day_date = week_start + timedelta(days=offset)
+        week_days.append({
+            'short_label': short_labels[offset],
+            'done': day_date in completed_dates,
+            'is_today': day_date == local_today,
+            'day_of_month': day_date.day,
+        })
+
+    week_range = (
+        f'{week_start.strftime("%b")} {week_start.day}'
+        f' - {week_end.strftime("%b")} {week_end.day}'
+    )
+    return {
+        'week_days': week_days,
+        'week_range': week_range,
+    }
+
+
 def get_game_life_cost(game_slug):
     configured = GAME_LIFE_COSTS.get(game_slug, DEFAULT_GAME_LIFE_COST)
     try:
@@ -1110,8 +1164,13 @@ def problems():
         'next_life_eta': 'Ready',
         'changed': False,
     }
+    streak_week_view = {
+        'week_days': [],
+        'week_range': '',
+    }
     if current_user.is_authenticated:
         lives_view = build_user_lives_view(current_user)
+        streak_week_view = build_weekly_streak_view(current_user)
         if lives_view['changed']:
             db.session.commit()
 
@@ -1122,6 +1181,8 @@ def problems():
         lives_max=lives_view['lives_max'],
         seconds_until_next_life=lives_view['seconds_until_next_life'],
         next_life_eta=lives_view['next_life_eta'],
+        streak_week_days=streak_week_view['week_days'],
+        streak_week_range=streak_week_view['week_range'],
     )
 
 
@@ -1456,12 +1517,19 @@ def start_session():
     db.session.add(session)
     db.session.commit()
 
+    personal_best = db.session.query(db.func.max(GameSession.score)).filter(
+        GameSession.user_id == current_user.id,
+        GameSession.game_type_id == game_type.id,
+        GameSession.ended_at.isnot(None),
+    ).scalar() or 0
+
     return jsonify({
         'session_id': session.id,
         'life_cost': life_cost,
         'lives_remaining': life_use['lives_remaining'],
         'seconds_until_next_life': life_use['seconds_until_next_life'],
         'next_life_eta': format_seconds_short(life_use['seconds_until_next_life']),
+        'personal_best': personal_best,
     })
 
 
@@ -1521,10 +1589,8 @@ def end_session(session_id):
 
 
 def calculate_xp(session):
-    base_xp = 10
-    accuracy_bonus = int((session.accuracy or 0) * 20)
-    difficulty_bonus = (session.difficulty_level - 1) * 5
-    return base_xp + accuracy_bonus + difficulty_bonus
+    # Product rule: 1 neuron (XP) rewarded per score point.
+    return max(0, int(session.score or 0))
 
 
 def clamp(value, min_value, max_value):

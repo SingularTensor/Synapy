@@ -1,26 +1,24 @@
-# Synapy - The Gamified Cognitive Assessment Platform
+# Synapy
 
-Synapy is a B2C cognitive assessment and problem-solving platform designed for individual consumers. Think of it like LeetCode, but applied to a wider array of industries, using short, engaging, game-styled puzzles.
+Synapy is a mobile-first cognitive training web application built with Flask. Players complete short browser games, receive performance feedback, and can track their progress over time.
 
-By evaluating users' core cognitive fitness (working memory, processing speed, spatial reasoning, and pattern recognition), Synapy allows individuals to train and showcase their talents across various domains without the stress of traditional tests.
+## Features
+- **Playable game templates today:** `sequence-memory`, `speed-dart`, `box-adding`, `color-word`. Additional game slugs can appear as **Coming Soon** until templates are implemented.
+- **Performance metrics pipeline:** Authenticated sessions track `score`, `accuracy`, `rounds_completed`, and `avg_response_time_ms`, then feed XP and cognitive trait recomputation.
+- **Server-side access gating:** Premium access is enforced on `/try/<slug>`, `/play/<slug>`, `/api/session/start`, and `/api/session/<id>/end`.
+- **Access tiers:**
+  - *Unregistered Free:* Browse the catalog and play currently available free games in guest mode (no persisted session history or XP).
+  - *Registered Free:* Access currently available free games with persisted sessions, XP progression, lives/streak systems, and `/dashboard`.
+  - *Paid Premium:* Registered-free capabilities plus premium-gated game access and premium entitlements as premium templates/analytics roll out.
+- **Dashboard:** The trait chart uses live `cognitive_scores`; several top KPI/history cards are currently placeholder/demo values.
 
-## Core Features & Free/Paid Tiers
-- **Gamified Assessments:** Users play varied, short, and engaging game-like puzzles tailored to specific industries (e.g., Software Engineering, Logistics, Customer Success).
-- **Deep Performance Metrics:** Instead of pass/fail, Synapy tracks granular performance metrics (completion time, error rates, efficiency) to place users into percentiles.
-- **Three Access Tiers:**
-  - *Unregistered Free:* General challenges.
-  - *Registered Free:* General + Daily Random + Limited Career Puzzles + "g-factor" dashboard.
-  - *Paid Premium:* Full Career Puzzles + Domain-specific statistical dashboard.
-- **Aesthetic philosophy:** A precise 3:2 ratio of "Professional : Gamified" UI/UX.
+## Project Documentation
 
-## For Developers and AI Agents
+For implementation details, see:
 
-When working on this codebase, **always read these documents first** to understand the architecture and design philosophy:
-- `AGENTS.md`: Mandatory safety rails, cognitive weight contract, and task preflight checks.
-- `docs/AGENT_PLAYBOOK.md`: Operational playbook to avoid common agent mistakes in auth, scoring, and dashboard work.
-- `docs/BILLING_RUNBOOK.md`: Stripe webhook setup, billing incident triage, and reconcile operations.
-- `CLAUDE.md`: Contains the overall project vision, technology stack, and standard commands.
-- `docs/PUZZLE_DESIGN.md`: Rules for how assessment games should mechanics, data tracking, and aesthetics.
+- `docs/PUZZLE_DESIGN.md` for game mechanics and tracked metrics.
+- `docs/DEPENDENCY_MAP.md` for the application structure.
+- `docs/BILLING_RUNBOOK.md` for Stripe webhook and reconciliation operations.
 
 ## Tech Stack
 - **Backend:** Flask (Python)

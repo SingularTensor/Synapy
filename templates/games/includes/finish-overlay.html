@@ -1,0 +1,21 @@
+﻿<div class="game-over-banner" id="gameOver">
+    <div class="banner-content" id="summaryContent">
+        <div class="banner-stats">
+            <h2 id="bannerMessage" class="banner-message choreo-hidden">Run completed</h2>
+            <div class="score-details choreo-hidden" id="scoreDetails">
+                Score: <span id="finalScore">0</span>
+            </div>
+            {% if include_result_detail %}
+            <div id="resultDetail" class="choreo-hidden" aria-hidden="true"></div>
+            {% endif %}
+        </div>
+        <div class="banner-actions choreo-hidden" id="bannerActions">
+            <button class="btn btn-secondary" id="continueBtn" type="button">Next</button>
+        </div>
+    </div>
+    <div class="reward-screen choreo-hidden" id="rewardScreen">
+        <h2 class="reward-screen-title">Rewards</h2>
+        <div class="reward-screen-amount">+<span id="rewardScreenNeurons">0</span><span id="rewardScreenUnitIcon" class="reward-screen-unit-icon" aria-hidden="true"></span></div>
+        <button class="btn btn-secondary" id="rewardContinueBtn" type="button">Continue</button>
+    </div>
+</div>

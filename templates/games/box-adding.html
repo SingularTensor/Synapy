@@ -399,23 +399,6 @@
         text-align: center;
     }
 
-    .banner-stats h2 {
-        color: var(--text-strong);
-        font-size: 1.5rem;
-        margin: 0 0 5px 0;
-    }
-
-    .score-details {
-        color: var(--text-muted);
-        font-size: 1.05rem;
-    }
-
-    .score-details span#finalScore {
-        color: var(--accent);
-        font-weight: 700;
-        font-size: 1.2rem;
-    }
-
     .xp-text {
         color: #4ade80;
         font-weight: 600;
@@ -580,6 +563,7 @@
         }
     }
 </style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/finish-flow.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -669,34 +653,13 @@
         </div>
     </div>
 
-    <div class="game-over-banner" id="gameOver">
-        <div class="banner-content">
-            <div class="banner-stats">
-                <h2 id="bannerMessage">Game Over!</h2>
-                <div class="score-details">
-                    <span id="finalScore">0</span> correct rounds
-                    <span id="resultDetail" style="margin-left:8px; font-size: 0.9em;"></span>
-                    {% if current_user.is_authenticated %}
-                    • <span id="xpGained" class="xp-text"></span>
-                    {% endif %}
-                </div>
-            </div>
-            <div class="banner-actions">
-                {% if not current_user.is_authenticated %}
-                <a href="{{ url_for('register') }}" class="btn btn-secondary">Sign Up to Save</a>
-                {% endif %}
-                <div class="retry-meta">
-                    <button class="btn btn-primary" id="restartBtn">Try Again</button>
-                    <span class="retry-cost">Cost <span class="retry-sigma">&#963;</span>1</span>
-                </div>
-                <button class="btn btn-secondary" id="continueBtn" type="button">Continue</button>
-            </div>
-        </div>
-    </div>
+    {% set include_result_detail = true %}
+    {% include 'games/includes/finish-overlay.html' %}
 </div>
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/finish-flow.js') }}"></script>
 <script>
     const boxCells = Array.from(document.querySelectorAll('.box-cell'));
     const boxGridEl = document.getElementById('boxGrid');
@@ -715,11 +678,17 @@
     const gameControlsEl = document.getElementById('gameControls');
     const gamePanelEl = document.getElementById('gamePanel');
     const gameOverEl = document.getElementById('gameOver');
+    const summaryContentEl = document.getElementById('summaryContent');
+    const rewardScreenEl = document.getElementById('rewardScreen');
+    const rewardScreenNeuronsEl = document.getElementById('rewardScreenNeurons');
+    const rewardScreenUnitIconEl = document.getElementById('rewardScreenUnitIcon');
     const finalScoreEl = document.getElementById('finalScore');
+    const scoreDetailsEl = document.getElementById('scoreDetails');
+    const bannerActionsEl = document.getElementById('bannerActions');
     const resultDetailEl = document.getElementById('resultDetail');
-    const xpGainedEl = document.getElementById('xpGained');
     const restartBtnEl = document.getElementById('restartBtn');
     const continueBtnEl = document.getElementById('continueBtn');
+    const rewardContinueBtnEl = document.getElementById('rewardContinueBtn');
     const bannerMessageEl = document.getElementById('bannerMessage');
 
     const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
@@ -751,6 +720,7 @@
     let wheelTraceCtx = null;
     let wheelTraceLastPoint = null;
     let wheelTraceFadeTimeout = null;
+    let rewardedNeurons = 0;
     const PAIR_SPIN_STEP_MS = 80;
     const PAIR_RESULT_LEAD_MS = 400;
 
@@ -776,6 +746,37 @@
         if (globalAudio && typeof globalAudio.playError === 'function') {
             globalAudio.playError();
         }
+    }
+
+    const finishFlow = window.createFinishFlow({
+        gameOverEl,
+        summaryContentEl,
+        rewardScreenEl,
+        rewardScreenNeuronsEl,
+        rewardScreenUnitIconEl,
+        bannerMessageEl,
+        scoreDetailsEl,
+        bannerActionsEl,
+        finalScoreEl,
+        continueBtnEl,
+        rewardContinueBtnEl,
+        redirectUrl: "{{ url_for('problems') }}",
+        getSoundEnabled: () => {
+            if (!globalAudio || typeof globalAudio.isEnabled !== 'function') {
+                return true;
+            }
+            return globalAudio.isEnabled();
+        },
+        ensureAudioContext: () => {
+            if (globalAudio && typeof globalAudio.ensureContext === 'function') {
+                return globalAudio.ensureContext();
+            }
+            return null;
+        },
+    });
+
+    function normalizeRewardNeurons(value) {
+        return finishFlow.normalizeRewardValue(value);
     }
 
     let slotAudioCtx = null;
@@ -844,38 +845,19 @@
     }
 
     function resetResultBannerState() {
-        gameOverEl.classList.remove(
-            'show',
-            'outcome-success',
-            'outcome-neutral',
-            'outcome-failure'
-        );
-        if (bannerMessageEl) {
-            bannerMessageEl.textContent = 'Game Over!';
-        }
+        finishFlow.reset();
     }
 
-    function applyResultOutcome(outcome) {
-        const normalized = (outcome === 'success' || outcome === 'failure') ? outcome : 'neutral';
-        gameOverEl.classList.remove(
-            'show',
-            'outcome-success',
-            'outcome-neutral',
-            'outcome-failure'
-        );
-        gameOverEl.classList.add(`outcome-${normalized}`);
+    function triggerSuccessChoreography(finalScore) {
+        finishFlow.showSummary(finalScore);
+    }
 
-        if (bannerMessageEl) {
-            if (normalized === 'success') {
-                bannerMessageEl.textContent = 'New Personal Best!';
-            } else if (normalized === 'failure') {
-                bannerMessageEl.textContent = 'Run Not Counted';
-            } else {
-                bannerMessageEl.textContent = 'Run Complete';
-            }
-        }
+    function triggerNextRewardState() {
+        finishFlow.showReward(rewardedNeurons);
+    }
 
-        gameOverEl.classList.add('show');
+    function continueFromRewardScreen() {
+        finishFlow.continueFromReward();
     }
 
     function nowMs() {
@@ -1397,8 +1379,8 @@
         responseTimesMs = [];
         answerPhaseStartedAt = 0;
         answerWindowOpen = false;
+        rewardedNeurons = 0;
         resultDetailEl.textContent = '';
-        xpGainedEl && (xpGainedEl.innerHTML = '');
 
         updateHud();
         resetCellClasses();
@@ -1459,14 +1441,14 @@
         setMobileScrollLock(false);
 
         if (typeof lastUserAnswer === 'number' && !Number.isNaN(lastUserAnswer)) {
-            resultDetailEl.textContent = `Your answer: ${lastUserAnswer} | Correct: ${expectedAnswer}`;
+            resultDetailEl.textContent = '';
         } else {
-            resultDetailEl.textContent = `Correct answer: ${expectedAnswer}`;
+            resultDetailEl.textContent = '';
         }
 
         const accuracy = totalAttempts > 0 ? correctAttempts / totalAttempts : 0;
         const avgResponseTimeMs = getAverageResponseTimeMs();
-        let outcome = 'neutral';
+        rewardedNeurons = 0;
 
         if (isAuthenticated && sessionId) {
             try {
@@ -1494,32 +1476,16 @@
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) {
-                    outcome = 'failure';
-                    resultDetailEl.textContent = data.error || 'Session could not be recorded.';
-                    if (xpGainedEl) {
-                        xpGainedEl.innerHTML = '';
-                    }
-                } else if (xpGainedEl) {
-                    const tmpl = document.getElementById('neuronSvgTemplate');
-                    xpGainedEl.innerHTML = `+${data.xp_earned} ${tmpl ? tmpl.innerHTML : 'neurons'}`;
+                    rewardedNeurons = 0;
+                } else {
+                    rewardedNeurons = normalizeRewardNeurons(data.xp_earned);
                 }
             } catch (err) {
-                outcome = 'failure';
-                resultDetailEl.textContent = 'Network issue while saving run.';
-                if (xpGainedEl) {
-                    xpGainedEl.innerHTML = '';
-                }
+                rewardedNeurons = 0;
             }
-        } else if (isAuthenticated && !sessionId) {
-            outcome = 'failure';
-            resultDetailEl.textContent = 'Session could not be recorded.';
         }
 
-        if (outcome !== 'failure' && isAuthenticated && Number.isFinite(personalBest) && score > personalBest) {
-            outcome = 'success';
-        }
-
-        applyResultOutcome(outcome);
+        triggerSuccessChoreography(score);
     }
 
     answerFormEl.addEventListener('submit', (event) => {
@@ -1542,11 +1508,14 @@
     }
 
     startBtnEl.addEventListener('click', startGame);
-    restartBtnEl.addEventListener('click', startGame);
+    if (restartBtnEl) {
+        restartBtnEl.addEventListener('click', startGame);
+    }
     if (continueBtnEl) {
-        continueBtnEl.addEventListener('click', () => {
-            window.location.href = "{{ url_for('problems') }}";
-        });
+        continueBtnEl.addEventListener('click', triggerNextRewardState);
+    }
+    if (rewardContinueBtnEl) {
+        rewardContinueBtnEl.addEventListener('click', continueFromRewardScreen);
     }
     setAnswerFormVisible(false);
     setWheelVisible(false);
@@ -1556,3 +1525,4 @@
     resetPairFrame();
 </script>
 {% endblock %}
+

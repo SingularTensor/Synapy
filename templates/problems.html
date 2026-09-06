@@ -6,7 +6,8 @@
 <style>
     .problems-layout {
         display: grid;
-        grid-template-columns: 170px minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr) 170px;
+        grid-template-areas: "main sidebar";
         padding: 30px 40px 50px 40px;
         gap: 20px;
         align-items: start;
@@ -17,7 +18,15 @@
         min-width: 0;
     }
 
-    /* Left Sidebar */
+    .problems-layout aside {
+        grid-area: sidebar;
+    }
+
+    .problems-layout main {
+        grid-area: main;
+    }
+
+    /* Right Sidebar */
     .sidebar-menu {
         display: flex;
         flex-direction: column;
@@ -82,12 +91,18 @@
         text-align: left;
     }
 
+    .streak-hover-zone {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+    }
+
     .streak-icon {
         width: 39.04px;
         height: 39.04px;
         flex-shrink: 0;
         color: #22c55e;
-        filter: drop-shadow(0 0 5px rgba(34, 197, 94, 0.45));
+        filter: none;
     }
 
     .streak-count {
@@ -96,6 +111,81 @@
         font-size: 2.1rem;
         letter-spacing: 0.02em;
         line-height: 1;
+    }
+
+    .streak-popover {
+        position: absolute;
+        top: 50%;
+        right: calc(100% + 22px);
+        min-width: 250px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid #314736;
+        background: rgba(12, 18, 14, 0.96);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-50%) translateX(6px);
+        transition: opacity 0.18s ease, transform 0.18s ease;
+        z-index: 35;
+    }
+
+    .streak-hover-zone:hover .streak-popover,
+    .streak-hover-zone:focus-within .streak-popover {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(-50%) translateX(0);
+    }
+
+    .streak-popover-title {
+        color: #dcfce7;
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        margin-bottom: 10px;
+    }
+
+    .streak-week-grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .streak-day {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .streak-day-label {
+        color: #94a3b8;
+        font-size: 0.68rem;
+        font-weight: 600;
+    }
+
+    .streak-day-circle {
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.82rem;
+        font-weight: 700;
+        border: 1px solid #4b5563;
+        background: rgba(31, 41, 55, 0.7);
+        color: transparent;
+    }
+
+    .streak-day-done {
+        border-color: #22c55e;
+        background: #16a34a;
+        color: #ecfdf5;
+    }
+
+    .streak-day-today {
+        box-shadow: inset 0 0 0 1px rgba(236, 253, 245, 0.7);
     }
 
     .lives-balance {
@@ -154,7 +244,7 @@
     .perceptron-popover {
         position: absolute;
         top: 50%;
-        left: calc(100% + 28px);
+        right: calc(100% + 28px);
         min-width: 260px;
         padding: 14px 16px;
         border-radius: 12px;
@@ -163,7 +253,7 @@
         box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
         opacity: 0;
         pointer-events: none;
-        transform: translateY(-50%) translateX(-6px);
+        transform: translateY(-50%) translateX(6px);
         transition: opacity 0.18s ease, transform 0.18s ease;
         z-index: 30;
     }
@@ -252,24 +342,11 @@
         0% {
             transform: scaleY(0.9) skewX(-2deg);
             opacity: 0.85;
-            filter: drop-shadow(0 0 4px currentColor);
         }
 
         100% {
             transform: scaleY(1.05) skewX(2deg);
             opacity: 1;
-            filter: drop-shadow(0 0 8px currentColor);
-        }
-    }
-
-    .electric-surge-flow {
-        stroke-dasharray: 4 6;
-        animation: e-flow 3s linear infinite reverse;
-    }
-
-    @keyframes e-flow {
-        100% {
-            stroke-dashoffset: 20;
         }
     }
 
@@ -285,6 +362,13 @@
 
     .e-spark-delay-2 {
         animation-delay: 3s;
+    }
+
+    .electric-inner-bolt {
+        opacity: 0.55;
+        transform-box: fill-box;
+        transform-origin: center;
+        transform: scale(0.85);
     }
 
     @keyframes spark-drift {
@@ -505,7 +589,8 @@
 
     @media (max-width: 1100px) {
         .problems-layout {
-            grid-template-columns: 160px minmax(0, 1fr);
+            grid-template-columns: minmax(0, 1fr) 160px;
+            grid-template-areas: "main sidebar";
             padding: 24px 20px 40px 20px;
             gap: 16px;
         }
@@ -518,6 +603,9 @@
     @media (max-width: 860px) {
         .problems-layout {
             grid-template-columns: 1fr;
+            grid-template-areas:
+                "sidebar"
+                "main";
             padding: 18px 14px 28px 14px;
             gap: 20px;
         }
@@ -564,341 +652,455 @@
 {% endblock %}
 
 {% block content %}
-<div class="problems-layout">
+                    <div class="problems-layout">
 
-    <!-- Left Nav -->
-    <aside>
-        <div class="sidebar-menu">
-            {% if current_user.is_authenticated %}
-            <div class="lives-balance">
-                <div class="lives-row">
-                    <span class="life-hover-zone">
-                        <span
-                            class="life-heart {{ 'life-heart-active' if lives_remaining > 0 else 'life-heart-spent' }}">
-                            <svg class="perceptron-svg" viewBox="0 0 24 24" fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <!-- Sigma Symbol -->
-                                <text x="12" y="18" font-family="sans-serif" font-size="18" font-weight="bold"
-                                    fill="currentColor" text-anchor="middle" class="p-pulse"
-                                    opacity="0.95">&#963;</text>
-                            </svg>
-                        </span>
-                        <div class="perceptron-popover" id="perceptron-popover">
-                            <div class="perceptron-popover-title">Perceptrons</div>
-                            <div class="perceptron-grid" id="perceptron-grid">
-                                {% for i in range(lives_max) %}
-                                <span
-                                    class="perceptron-unit {{ 'perceptron-unit-active' if i < lives_remaining else 'perceptron-unit-spent' }}">
-                                    <svg class="perceptron-mini" viewBox="0 0 24 24" fill="none"
-                                        xmlns="http://www.w3.org/2000/svg">
-                                        <text x="12" y="18" font-family="sans-serif" font-size="18" font-weight="bold"
-                                            fill="currentColor" text-anchor="middle" opacity="0.95">&#963;</text>
+                        <!-- Left Nav -->
+                        <aside>
+                            <div class="sidebar-menu">
+                                {% if current_user.is_authenticated %}
+                                <div class="lives-balance">
+                                    <div class="lives-row">
+                                        <span class="life-hover-zone">
+                                            <span
+                                                class="life-heart {{ 'life-heart-active' if lives_remaining > 0 else 'life-heart-spent' }}">
+                                                <svg class="perceptron-svg" viewBox="0 0 24 24" fill="none"
+                                                    xmlns="http://www.w3.org/2000/svg">
+                                                    <!-- Sigma Symbol -->
+                                                    <text x="12" y="18" font-family="sans-serif" font-size="18"
+                                                        font-weight="bold" fill="currentColor" text-anchor="middle"
+                                                        class="p-pulse" opacity="0.95">&#963;</text>
+                                                </svg>
+                                            </span>
+                                            <div class="perceptron-popover" id="perceptron-popover">
+                                                <div class="perceptron-popover-title">Perceptrons</div>
+                                                <div class="perceptron-grid" id="perceptron-grid">
+                                                    {% for i in range(lives_max) %}
+                                                    <span
+                                                        class="perceptron-unit {{ 'perceptron-unit-active' if i < lives_remaining else 'perceptron-unit-spent' }}">
+                                                        <svg class="perceptron-mini" viewBox="0 0 24 24" fill="none"
+                                                            xmlns="http://www.w3.org/2000/svg">
+                                                            <text x="12" y="18" font-family="sans-serif" font-size="18"
+                                                                font-weight="bold" fill="currentColor"
+                                                                text-anchor="middle" opacity="0.95">&#963;</text>
+                                                        </svg>
+                                                    </span>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </span>
+                                        <span class="lives-count" id="lives-count">{{ lives_remaining }}</span>
+                                    </div>
+                                    <div class="lives-meta" id="lives-refresh-timer"
+                                        data-seconds-until-next-life="{{ seconds_until_next_life }}"
+                                        data-lives-remaining="{{ lives_remaining }}" data-lives-max="{{ lives_max }}">
+                                    </div>
+                                </div>
+
+                                <div class="neuron-balance">
+                                    <svg class="neuron-icon" viewBox="0 0 48 48" fill="none"
+                                        xmlns="http://www.w3.org/2000/svg" style="overflow: visible;">
+                                        <defs>
+                                            <radialGradient id="coreGlowHn" cx="50%" cy="50%" r="50%">
+                                                <stop offset="0%" stop-color="#f0abfc" />
+                                                <stop offset="50%" stop-color="#c084fc" />
+                                                <stop offset="100%" stop-color="#7e22ce" stop-opacity="0" />
+                                            </radialGradient>
+                                            <linearGradient id="dendriteGradHn" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                <stop offset="0%" stop-color="#a855f7" />
+                                                <stop offset="100%" stop-color="#ec4899" />
+                                            </linearGradient>
+                                            <linearGradient id="ringGradHn" x1="100%" y1="0%" x2="0%" y2="100%">
+                                                <stop offset="0%" stop-color="#8b5cf6" />
+                                                <stop offset="50%" stop-color="#d946ef" />
+                                                <stop offset="100%" stop-color="#6366f1" />
+                                            </linearGradient>
+                                            <filter id="neonBlurHn" x="-50%" y="-50%" width="200%" height="200%">
+                                                <feGaussianBlur stdDeviation="2" result="blur" />
+                                                <feMerge>
+                                                    <feMergeNode in="blur" />
+                                                    <feMergeNode in="SourceGraphic" />
+                                                </feMerge>
+                                            </filter>
+                                            <filter id="intenseGlowHn">
+                                                <feGaussianBlur stdDeviation="3" result="blur" />
+                                                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                            </filter>
+                                        </defs>
+                                        <style>
+                                            .n-currency-float {
+                                                animation: n-float-anim 3.5s ease-in-out infinite alternate;
+                                                transform-origin: center;
+                                            }
+
+                                            .n-aura {
+                                                animation: n-aura-pulse 2.5s ease-in-out infinite alternate;
+                                                transform-origin: center;
+                                            }
+
+                                            .n-ring-spin {
+                                                animation: n-ring-spin-anim 8s linear infinite;
+                                                transform-origin: 24px 24px;
+                                            }
+
+                                            .n-energy-flow {
+                                                stroke-dasharray: 8 12;
+                                                animation: n-flow-dash 3s linear infinite;
+                                            }
+
+                                            .n-core-beat {
+                                                animation: n-beat 1.5s ease-in-out infinite alternate;
+                                                transform-origin: 24px 24px;
+                                            }
+
+                                            .n-spark {
+                                                animation: n-sparkle 2s ease-in-out infinite alternate;
+                                                transform-origin: center;
+                                            }
+
+                                            @keyframes n-float-anim {
+                                                0% {
+                                                    transform: translateY(1px);
+                                                }
+
+                                                100% {
+                                                    transform: translateY(-2px);
+                                                }
+                                            }
+
+                                            @keyframes n-aura-pulse {
+                                                0% {
+                                                    transform: scale(0.85);
+                                                    opacity: 0.4;
+                                                }
+
+                                                100% {
+                                                    transform: scale(1.15);
+                                                    opacity: 0.7;
+                                                }
+                                            }
+
+                                            @keyframes n-ring-spin-anim {
+                                                0% {
+                                                    transform: rotate(0deg);
+                                                }
+
+                                                100% {
+                                                    transform: rotate(360deg);
+                                                }
+                                            }
+
+                                            @keyframes n-flow-dash {
+                                                100% {
+                                                    stroke-dashoffset: -40;
+                                                }
+                                            }
+
+                                            @keyframes n-beat {
+                                                0% {
+                                                    transform: scale(0.9);
+                                                    filter: brightness(1) drop-shadow(0 0 2px #d8b4fe);
+                                                }
+
+                                                100% {
+                                                    transform: scale(1.1);
+                                                    filter: brightness(1.3) drop-shadow(0 0 6px #f0abfc);
+                                                }
+                                            }
+
+                                            @keyframes n-sparkle {
+                                                0% {
+                                                    opacity: 0.2;
+                                                    transform: scale(0.6);
+                                                }
+
+                                                100% {
+                                                    opacity: 1;
+                                                    transform: scale(1.2);
+                                                }
+                                            }
+                                        </style>
+                                        <g class="n-currency-float">
+                                            <circle cx="24" cy="24" r="14" fill="url(#coreGlowHn)" class="n-aura" />
+                                            <circle cx="24" cy="24" r="20" fill="none" stroke="url(#ringGradHn)"
+                                                stroke-width="1.5" stroke-dasharray="4 4" class="n-ring-spin"
+                                                opacity="0.6" />
+                                            <circle cx="24" cy="24" r="22" fill="none" stroke="#6b21a8"
+                                                stroke-width="0.5" opacity="0.4" />
+                                            <path
+                                                d="M24 8 L24 16 M24 40 L24 32 M8 24 L16 24 M40 24 L32 24 M12 12 L18 18 M36 36 L30 30 M12 36 L18 30 M36 12 L30 18"
+                                                stroke="#581c87" stroke-width="2" stroke-linecap="round" />
+                                            <path class="n-energy-flow"
+                                                d="M24 6 Q30 14 24 24 Q18 34 24 42 M6 24 Q14 18 24 24 Q34 30 42 24 M10 10 Q18 20 24 24 Q30 28 38 38"
+                                                stroke="url(#dendriteGradHn)" stroke-width="1.5" stroke-linecap="round"
+                                                filter="url(#neonBlurHn)" />
+                                            <circle cx="24" cy="8" r="2.5" fill="#f472b6" class="n-spark"
+                                                style="animation-delay: 0s;" />
+                                            <circle cx="24" cy="40" r="2.5" fill="#c084fc" class="n-spark"
+                                                style="animation-delay: 0.3s;" />
+                                            <circle cx="8" cy="24" r="2.5" fill="#e879f9" class="n-spark"
+                                                style="animation-delay: 0.6s;" />
+                                            <circle cx="40" cy="24" r="2.5" fill="#f472b6" class="n-spark"
+                                                style="animation-delay: 0.9s;" />
+                                            <circle cx="12" cy="12" r="1.5" fill="#a855f7" class="n-spark"
+                                                style="animation-delay: 0.2s;" />
+                                            <circle cx="36" cy="36" r="1.5" fill="#a855f7" class="n-spark"
+                                                style="animation-delay: 0.5s;" />
+                                            <circle cx="12" cy="36" r="1.5" fill="#d946ef" class="n-spark"
+                                                style="animation-delay: 0.8s;" />
+                                            <circle cx="36" cy="12" r="1.5" fill="#d946ef" class="n-spark"
+                                                style="animation-delay: 1.1s;" />
+                                            <path d="M24 15 L28 20 L33 24 L28 28 L24 33 L20 28 L15 24 L20 20 Z"
+                                                fill="#2e1065" stroke="#d8b4fe" stroke-width="1.5"
+                                                filter="url(#neonBlurHn)" />
+                                            <path d="M24 17 L27 21 L30 24 L27 27 L24 31 L21 27 L18 24 L21 21 Z"
+                                                fill="#4c1d95" opacity="0.8" />
+                                            <circle cx="24" cy="24" r="4" fill="#fdf4ff" stroke="#f0abfc"
+                                                stroke-width="1.5" class="n-core-beat" filter="url(#intenseGlowHn)" />
+                                            <circle cx="24" cy="24" r="1.5" fill="#fff" />
+                                        </g>
                                     </svg>
-                                </span>
-                                {% endfor %}
+                                    <span class="neuron-count">{{ current_user.total_xp }}</span>
+                                </div>
+
+                                <div class="streak-balance">
+                                    <span class="streak-hover-zone">
+                                        <svg class="streak-icon" viewBox="0 0 24 24" fill="none"
+                                            xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                            <!-- Floating ambient sparks -->
+                                            <circle cx="10" cy="18" r="1.5" fill="currentColor" class="e-spark-float" />
+                                            <circle cx="12" cy="19" r="1.2" fill="currentColor"
+                                                class="e-spark-float e-spark-delay-1" />
+                                            <circle cx="14" cy="17" r="1.8" fill="currentColor"
+                                                class="e-spark-float e-spark-delay-2" />
+
+                                            <!-- Jagged upward electric surge -->
+                                            <path d="M12 21 L17 11 L13 10 L16 2 L7 12 L11 13 L8 21 Z"
+                                                fill="currentColor" class="electric-flicker" />
+                                            <!-- High-energy inner electric spark -->
+                                            <path d="M12 18 L14 12 L12.5 11.5 L14 5 L9 12.5 L11 13 L10 18 Z"
+                                                fill="#86efac" class="electric-flicker electric-inner-bolt"
+                                                style="animation-duration: 0.6s;" />
+                                        </svg>
+                                        <div class="streak-popover" id="streak-popover">
+                                            <div class="streak-popover-title">This Week {{ streak_week_range }}</div>
+                                            <div class="streak-week-grid">
+                                                {% for day in streak_week_days %}
+                                                <div class="streak-day">
+                                                    <span class="streak-day-label">{{ day.short_label }}</span>
+                                                    <span
+                                                        class="streak-day-circle {% if day.done %}streak-day-done{% endif %} {% if day.is_today %}streak-day-today{% endif %}">
+                                                        {% if day.done %}&#10003;{% endif %}
+                                                    </span>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </span>
+                                    <span class="streak-count">{{ current_user.current_streak or 0 }}</span>
+                                </div>
+                                {% endif %}
+
+                                <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0 15px 0;">
+
+                                {% if not current_user.is_authenticated %}
+                                <div style="text-align: center; color: #888; font-size: 0.85rem; padding: 0 10px;">
+                                    <p style="margin-bottom: 15px; line-height: 1.4;">Sign in to view lists and monitor
+                                        progress.</p>
+                                    <a href="{{ url_for('login') }}"
+                                        style="background: #e5e7eb; color: #000; padding: 6px 16px; border-radius: 20px; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem;">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                            <circle cx="12" cy="7" r="4"></circle>
+                                        </svg>
+                                        Sign in
+                                    </a>
+                                </div>
+                                {% endif %}
                             </div>
-                        </div>
-                    </span>
-                    <span class="lives-count" id="lives-count">{{ lives_remaining }}</span>
-                </div>
-                <div class="lives-meta" id="lives-refresh-timer"
-                    data-seconds-until-next-life="{{ seconds_until_next_life }}"
-                    data-lives-remaining="{{ lives_remaining }}" data-lives-max="{{ lives_max }}">
-                </div>
-            </div>
+                        </aside>
 
-            <div class="neuron-balance">
-                <svg class="neuron-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"
-                    style="overflow: visible;">
-                    <style>
-                        .n-core-pulse {
-                            animation: n-core-anim 2.5s ease-in-out infinite alternate;
-                            transform-origin: center;
-                        }
+                        <!-- Main Content -->
+                        <main>
+                            {% set playable_games = games | rejectattr('is_coming_soon') | list %}
+                            {% set featured_1 = playable_games[0] if playable_games|length > 0 else none %}
+                            {% set featured_2 = playable_games[1] if playable_games|length > 1 else featured_1 %}
+                            {% set featured_3 = playable_games[2] if playable_games|length > 2 else featured_1 %}
+                            <!-- Hero Cards -->
+                            <div class="hero-cards">
+                                <a href="{% if featured_1 %}{% if current_user.is_authenticated %}{{ url_for('play_game', game_slug=featured_1.slug) }}{% else %}{{ url_for('try_game', game_slug=featured_1.slug) }}{% endif %}{% else %}{{ url_for('problems') }}{% endif %}"
+                                    class="card card-1">
+                                    <div>
+                                        <div class="card-title">Daily G-Factor</div>
+                                        <div class="card-subtitle">General cognitive warmup</div>
+                                    </div>
+                                    <div class="btn-sm">Begin Now</div>
+                                </a>
+                                <a href="{% if featured_2 %}{% if current_user.is_authenticated %}{{ url_for('play_game', game_slug=featured_2.slug) }}{% else %}{{ url_for('try_game', game_slug=featured_2.slug) }}{% endif %}{% else %}{{ url_for('problems') }}{% endif %}"
+                                    class="card card-2">
+                                    <div>
+                                        <div class="card-title">Foodservice Rush</div>
+                                        <div class="card-subtitle">Beginner Friendly • Day 1</div>
+                                    </div>
+                                    <div class="btn-sm">Start Learning</div>
+                                </a>
+                                <a href="{% if featured_3 %}{% if current_user.is_authenticated %}{{ url_for('play_game', game_slug=featured_3.slug) }}{% else %}{{ url_for('try_game', game_slug=featured_3.slug) }}{% endif %}{% else %}{{ url_for('problems') }}{% endif %}"
+                                    class="card card-3">
+                                    <div>
+                                        <div class="card-title">Logistics & Spatial</div>
+                                        <div class="card-subtitle">Top Interview Puzzles</div>
+                                    </div>
+                                    <div class="btn-sm">Get Started</div>
+                                </a>
+                            </div>
 
-                        .n-float {
-                            animation: n-float-anim 4s ease-in-out infinite alternate;
-                        }
+                            <!-- Topic Filters -->
+                            <div class="filters">
+                                <button class="filter-btn active" data-filter="all">All Topics</button>
+                                <button class="filter-btn" data-filter="General Puzzles">General Puzzles</button>
+                                <button class="filter-btn" data-filter="Retail">Retail</button>
+                                <button class="filter-btn" data-filter="Foodservice">Foodservice</button>
+                                <button class="filter-btn" data-filter="Hospitality">Hospitality</button>
+                                <button class="filter-btn" data-filter="Software Eng">Software Eng</button>
+                                <button class="filter-btn" data-filter="Logistics">Logistics</button>
+                            </div>
 
-                        .n-flow {
-                            stroke-dasharray: 4 6;
-                            animation: n-flow-anim 12s linear infinite;
-                        }
+                            <!-- Search Bar -->
+                            <div class="search-wrap">
+                                <input type="text" class="search-input" placeholder="Search problems...">
+                            </div>
 
-                        @keyframes n-core-anim {
-                            0% {
-                                filter: drop-shadow(0 0 2px #d8b4fe);
-                                transform: scale(0.9);
-                            }
+                            <!-- Problems Table -->
+                            <div class="table-wrap">
+                                <table class="problems-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Cost</th>
+                                            <th>Title</th>
+                                            <th>Difficulty</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Database populated games -->
+                                        {% for game in games %}
+                                        <tr class="problem-row" data-category="{{ game.industry }}">
+                                            <td class="life-cost-cell">
+                                                {% for _ in range(game.life_cost) %}
+                                                <span class="sigma-cost">
+                                                    <svg class="perceptron-svg" viewBox="0 0 24 24" fill="none"
+                                                        xmlns="http://www.w3.org/2000/svg">
+                                                        <!-- Sigma Symbol -->
+                                                        <text x="12" y="18" font-family="sans-serif" font-size="18"
+                                                            font-weight="bold" fill="currentColor" text-anchor="middle"
+                                                            class="p-pulse" opacity="0.95">&#963;</text>
+                                                    </svg>
+                                                </span>
+                                                {% endfor %}
+                                            </td>
+                                            <td>
+                                                {% if game.is_coming_soon %}
+                                                <a href="{{ url_for('coming_soon', game_slug=game.slug) }}"
+                                                    class="problem-title">
+                                                    {{ loop.index }}. {{ game.name }}
+                                                    <span class="coming-soon-badge">Coming Soon</span>
+                                                    {% if game.access_level == 'premium' %}<span
+                                                        class="lock-icon">&#128274;</span>{% endif
+                                                    %}
+                                                </a>
+                                                {% else %}
+                                                <a href="{% if current_user.is_authenticated %}{{ url_for('play_game', game_slug=game.slug) }}{% else %}{{ url_for('try_game', game_slug=game.slug) }}{% endif %}"
+                                                    class="problem-title">
+                                                    {{ loop.index }}. {{ game.name }}
+                                                    {% if game.access_level == 'premium' %}<span
+                                                        class="lock-icon">&#128274;</span>{% endif %}
+                                                </a>
+                                                {% endif %}
+                                            </td>
+                                            <td
+                                                class="{% if loop.index % 3 == 0 %}diff-hard{% elif loop.index % 2 == 0 %}diff-med{% else %}diff-easy{% endif %}">
+                                                {% if loop.index % 3 == 0 %}Hard{% elif loop.index % 2 == 0 %}Med.{%
+                                                else %}Easy{% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </main>
 
-                            100% {
-                                filter: drop-shadow(0 0 6px #e879f9);
-                                transform: scale(1.1);
-                            }
-                        }
+                        <!-- Filtering Logic -->
+                        <script>
+                            document.addEventListener('DOMContentLoaded', () => {
+                                const buttons = document.querySelectorAll('.filter-btn');
+                                const rows = document.querySelectorAll('.problem-row');
+                                const livesTimer = document.getElementById('lives-refresh-timer');
+                                const lifeSigma = document.querySelector('.lives-row .life-heart');
+                                const livesCount = document.getElementById('lives-count');
+                                const perceptronUnits = document.querySelectorAll('#perceptron-grid .perceptron-unit');
+                                const LIFE_REGEN_SECONDS = 1800;
 
-                        @keyframes n-flow-anim {
-                            to {
-                                stroke-dashoffset: -100;
-                            }
-                        }
+                                buttons.forEach(btn => {
+                                    btn.addEventListener('click', () => {
+                                        // Remove active styling from all buttons
+                                        buttons.forEach(b => b.classList.remove('active'));
+                                        // Add active styling to clicked button
+                                        btn.classList.add('active');
 
-                        @keyframes n-float-anim {
-                            0% {
-                                transform: translateY(0.5px);
-                            }
+                                        // Filter logic
+                                        const filter = btn.getAttribute('data-filter');
+                                        rows.forEach(row => {
+                                            if (filter === 'all' || row.getAttribute('data-category') === filter) {
+                                                row.style.display = '';
+                                            } else {
+                                                row.style.display = 'none';
+                                            }
+                                        });
+                                    });
+                                });
 
-                            100% {
-                                transform: translateY(-1.5px);
-                            }
-                        }
-                    </style>
-                    <g class="n-float">
-                        <!-- Glowing backdrop -->
-                        <circle cx="18" cy="17" r="10" fill="rgba(124, 58, 237, 0.15)" filter="blur(4px)" />
+                                if (livesTimer) {
+                                    let secondsUntilNextLife = Number(livesTimer.dataset.secondsUntilNextLife || 0);
+                                    let livesRemaining = Number(livesTimer.dataset.livesRemaining || 0);
+                                    const livesMax = Number(livesTimer.dataset.livesMax || 0);
 
-                        <!-- Distal dendrite extensions -->
-                        <path
-                            d="M10 24 C8 28 6 30 4 30 M26 24 C28 28 30 30 32 30 M18 7 C18 4 20 2 22 2 M12 11 L8 7 M24 11 L28 7"
-                            stroke="#8b5cf6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"
-                            opacity="0.4" />
+                                    const renderLives = () => {
+                                        if (lifeSigma) {
+                                            lifeSigma.classList.toggle('life-heart-active', livesRemaining > 0);
+                                            lifeSigma.classList.toggle('life-heart-spent', livesRemaining <= 0);
+                                        }
+                                        if (livesCount) {
+                                            livesCount.textContent = String(livesRemaining);
+                                        }
+                                        if (perceptronUnits.length) {
+                                            perceptronUnits.forEach((unit, index) => {
+                                                unit.classList.toggle('perceptron-unit-active', index < livesRemaining);
+                                                unit.classList.toggle('perceptron-unit-spent', index >= livesRemaining);
+                                            });
+                                        }
+                                    };
 
-                        <!-- Primary connections (Animated flow) -->
-                        <path class="n-flow" d="M18 17 L18 7 M18 17 L10 24 M18 17 L26 24 M18 17 L12 11 M18 17 L24 11"
-                            stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round" />
+                                    renderLives();
 
-                        <!-- Synaptic terminals -->
-                        <circle cx="18" cy="7" r="2" fill="#c084fc" />
-                        <circle cx="10" cy="24" r="2.5" fill="#a78bfa" />
-                        <circle cx="26" cy="24" r="2.5" fill="#a78bfa" />
-                        <circle cx="12" cy="11" r="1.5" fill="#c084fc" />
-                        <circle cx="24" cy="11" r="1.5" fill="#c084fc" />
+                                    setInterval(() => {
+                                        if (livesRemaining >= livesMax) {
+                                            return;
+                                        }
 
-                        <!-- Soma (Cell Body) -->
-                        <circle cx="18" cy="17" r="5.5" fill="#1e1b4b" stroke="#d8b4fe" stroke-width="1.8" />
+                                        if (secondsUntilNextLife <= 0) {
+                                            livesRemaining = Math.min(livesMax, livesRemaining + 1);
+                                            renderLives();
+                                            if (livesRemaining >= livesMax) {
+                                                return;
+                                            }
+                                            secondsUntilNextLife = LIFE_REGEN_SECONDS;
+                                            return;
+                                        }
 
-                        <!-- Nucleus / Energy Core -->
-                        <circle cx="18" cy="17" r="2.5" fill="#e879f9" class="n-core-pulse" />
-                    </g>
-                </svg>
-                <span class="neuron-count">{{ current_user.total_xp }}</span>
-            </div>
-
-            <div class="streak-balance">
-                <svg class="streak-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true">
-                    <!-- Flame teardrop boundary field -->
-                    <path d="M12 22 C6 22 4 16 6 11 C8 6 12 2 12 2 C12 2 16 6 18 11 C20 16 18 22 12 22 Z"
-                        stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 4" opacity="0.4" fill="none"
-                        class="electric-surge-flow" />
-
-                    <!-- Floating ambient sparks -->
-                    <circle cx="10" cy="18" r="1.5" fill="currentColor" class="e-spark-float" />
-                    <circle cx="12" cy="19" r="1.2" fill="currentColor" class="e-spark-float e-spark-delay-1" />
-                    <circle cx="14" cy="17" r="1.8" fill="currentColor" class="e-spark-float e-spark-delay-2" />
-
-                    <!-- Jagged upward electric surge -->
-                    <path d="M12 21 L17 11 L13 10 L16 2 L7 12 L11 13 L8 21 Z" fill="currentColor"
-                        class="electric-flicker" />
-                    <!-- High-energy inner electric spark -->
-                    <path d="M12 18 L14 12 L12.5 11.5 L14 5 L9 12.5 L11 13 L10 18 Z" fill="#bbf7d0" opacity="0.9"
-                        class="electric-flicker" style="animation-duration: 0.6s;" />
-                </svg>
-                <span class="streak-count">{{ current_user.current_streak or 0 }}</span>
-            </div>
-            {% endif %}
-
-            <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0 15px 0;">
-
-            {% if not current_user.is_authenticated %}
-            <div style="text-align: center; color: #888; font-size: 0.85rem; padding: 0 10px;">
-                <p style="margin-bottom: 15px; line-height: 1.4;">Sign in to view lists and monitor progress.</p>
-                <a href="{{ url_for('login') }}"
-                    style="background: #e5e7eb; color: #000; padding: 6px 16px; border-radius: 20px; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                        <circle cx="12" cy="7" r="4"></circle>
-                    </svg>
-                    Sign in
-                </a>
-            </div>
-            {% endif %}
-        </div>
-    </aside>
-
-    <!-- Main Content -->
-    <main>
-        <!-- Hero Cards -->
-        <div class="hero-cards">
-            <a href="#" class="card card-1">
-                <div>
-                    <div class="card-title">Daily G-Factor</div>
-                    <div class="card-subtitle">General cognitive warmup</div>
-                </div>
-                <div class="btn-sm">Begin Now</div>
-            </a>
-            <a href="#" class="card card-2">
-                <div>
-                    <div class="card-title">Foodservice Rush</div>
-                    <div class="card-subtitle">Beginner Friendly • Day 1</div>
-                </div>
-                <div class="btn-sm">Start Learning</div>
-            </a>
-            <a href="#" class="card card-3">
-                <div>
-                    <div class="card-title">Logistics & Spatial</div>
-                    <div class="card-subtitle">Top Interview Puzzles</div>
-                </div>
-                <div class="btn-sm">Get Started</div>
-            </a>
-        </div>
-
-        <!-- Topic Filters -->
-        <div class="filters">
-            <button class="filter-btn active" data-filter="all">All Topics</button>
-            <button class="filter-btn" data-filter="General Puzzles">General Puzzles</button>
-            <button class="filter-btn" data-filter="Retail">Retail</button>
-            <button class="filter-btn" data-filter="Foodservice">Foodservice</button>
-            <button class="filter-btn" data-filter="Hospitality">Hospitality</button>
-            <button class="filter-btn" data-filter="Software Eng">Software Eng</button>
-            <button class="filter-btn" data-filter="Logistics">Logistics</button>
-        </div>
-
-        <!-- Search Bar -->
-        <div class="search-wrap">
-            <input type="text" class="search-input" placeholder="Search problems...">
-        </div>
-
-        <!-- Problems Table -->
-        <div class="table-wrap">
-            <table class="problems-table">
-                <thead>
-                    <tr>
-                        <th>Cost</th>
-                        <th>Title</th>
-                        <th>Difficulty</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Database populated games -->
-                    {% for game in games %}
-                    <tr class="problem-row" data-category="{{ game.industry }}">
-                        <td class="life-cost-cell">
-                            {% for _ in range(game.life_cost) %}
-                            <span class="sigma-cost">
-                                <svg class="perceptron-svg" viewBox="0 0 24 24" fill="none"
-                                    xmlns="http://www.w3.org/2000/svg">
-                                    <!-- Sigma Symbol -->
-                                    <text x="12" y="18" font-family="sans-serif" font-size="18" font-weight="bold"
-                                        fill="currentColor" text-anchor="middle" class="p-pulse"
-                                        opacity="0.95">&#963;</text>
-                                </svg>
-                            </span>
-                            {% endfor %}
-                        </td>
-                        <td>
-                            {% if game.is_coming_soon %}
-                            <a href="{{ url_for('coming_soon', game_slug=game.slug) }}" class="problem-title">
-                                {{ loop.index }}. {{ game.name }}
-                                <span class="coming-soon-badge">Coming Soon</span>
-                                {% if game.access_level == 'premium' %}<span class="lock-icon">&#128274;</span>{% endif
-                                %}
-                            </a>
-                            {% elif game.access_level == 'premium' %}
-                            <a href="#" class="problem-title">
-                                {{ loop.index }}. {{ game.name }} <span class="lock-icon">&#128274;</span>
-                            </a>
-                            {% else %}
-                            <a href="{% if current_user.is_authenticated %}{{ url_for('play_game', game_slug=game.slug) }}{% else %}{{ url_for('try_game', game_slug=game.slug) }}{% endif %}"
-                                class="problem-title">
-                                {{ loop.index }}. {{ game.name }}
-                            </a>
-                            {% endif %}
-                        </td>
-                        <td
-                            class="{% if loop.index % 3 == 0 %}diff-hard{% elif loop.index % 2 == 0 %}diff-med{% else %}diff-easy{% endif %}">
-                            {% if loop.index % 3 == 0 %}Hard{% elif loop.index % 2 == 0 %}Med.{% else %}Easy{% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </main>
-
-    <!-- Filtering Logic -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const buttons = document.querySelectorAll('.filter-btn');
-            const rows = document.querySelectorAll('.problem-row');
-            const livesTimer = document.getElementById('lives-refresh-timer');
-            const lifeSigma = document.querySelector('.lives-row .life-heart');
-            const livesCount = document.getElementById('lives-count');
-            const perceptronUnits = document.querySelectorAll('#perceptron-grid .perceptron-unit');
-            const LIFE_REGEN_SECONDS = 1800;
-
-            buttons.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    // Remove active styling from all buttons
-                    buttons.forEach(b => b.classList.remove('active'));
-                    // Add active styling to clicked button
-                    btn.classList.add('active');
-
-                    // Filter logic
-                    const filter = btn.getAttribute('data-filter');
-                    rows.forEach(row => {
-                        if (filter === 'all' || row.getAttribute('data-category') === filter) {
-                            row.style.display = '';
-                        } else {
-                            row.style.display = 'none';
-                        }
-                    });
-                });
-            });
-
-            if (livesTimer) {
-                let secondsUntilNextLife = Number(livesTimer.dataset.secondsUntilNextLife || 0);
-                let livesRemaining = Number(livesTimer.dataset.livesRemaining || 0);
-                const livesMax = Number(livesTimer.dataset.livesMax || 0);
-
-                const renderLives = () => {
-                    if (lifeSigma) {
-                        lifeSigma.classList.toggle('life-heart-active', livesRemaining > 0);
-                        lifeSigma.classList.toggle('life-heart-spent', livesRemaining <= 0);
-                    }
-                    if (livesCount) {
-                        livesCount.textContent = String(livesRemaining);
-                    }
-                    if (perceptronUnits.length) {
-                        perceptronUnits.forEach((unit, index) => {
-                            unit.classList.toggle('perceptron-unit-active', index < livesRemaining);
-                            unit.classList.toggle('perceptron-unit-spent', index >= livesRemaining);
-                        });
-                    }
-                };
-
-                renderLives();
-
-                setInterval(() => {
-                    if (livesRemaining >= livesMax) {
-                        return;
-                    }
-
-                    if (secondsUntilNextLife <= 0) {
-                        livesRemaining = Math.min(livesMax, livesRemaining + 1);
-                        renderLives();
-                        if (livesRemaining >= livesMax) {
-                            return;
-                        }
-                        secondsUntilNextLife = LIFE_REGEN_SECONDS;
-                        return;
-                    }
-
-                    secondsUntilNextLife -= 1;
-                }, 1000);
-            }
-        });
-    </script>
-</div>
-{% endblock %}
+                                        secondsUntilNextLife -= 1;
+                                    }, 1000);
+                                }
+                            });
+                        </script>
+                    </div>
+                    {% endblock %}

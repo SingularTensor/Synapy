@@ -409,6 +409,8 @@ class SessionPayloadValidationTests(unittest.TestCase):
         self.assertIn('<th>Cost</th>', html)
         self.assertIn('lives-row', html)
         self.assertIn('sigma-cost', html)
+        self.assertIn('streak-popover', html)
+        self.assertIn('streak-week-grid', html)
 
     def test_start_premium_gating_matches_end_premium_gating(self):
         premium_start = self.client.post(
@@ -496,6 +498,26 @@ class SessionPayloadValidationTests(unittest.TestCase):
         self.assertIsNone(session_row.avg_response_time_ms)
         self.assertEqual(session_row.score, payload['score'])
         self.assertEqual(session_row.rounds_completed, payload['rounds_completed'])
+
+    def test_end_rewards_one_xp_per_score_point(self):
+        self.user.total_xp = 5
+        db.session.commit()
+
+        session_id = self._start_free_session()
+        payload = self._valid_end_payload()
+        payload['score'] = 12
+        response = self.client.post(
+            f'/api/session/{session_id}/end',
+            json=payload,
+            headers=self._csrf_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.get_json() or {}
+        self.assertEqual(body.get('xp_earned'), 12)
+        self.assertEqual(body.get('total_xp'), 17)
+
+        refreshed = db.session.get(User, self.user.id)
+        self.assertEqual(refreshed.total_xp, 17)
 
 
 if __name__ == '__main__':
