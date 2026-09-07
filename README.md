@@ -109,7 +109,4 @@ flask --app app db stamp head
 
 | Name | Role |
 |------|------|
-| Chris | Technical Product Lead / Chief Agent Officer |
-| Claude Opus 4.6 | Software Architect / Full-Stack Engineer |
-| GPT CODEX 5.3 | Game Systems Engineer |
-| Gemini 3.1 Pro w/ Antigravity | UI / Frontend Engineer |
+| Chris | Technical Product Lead / Full Stack Engineer |
